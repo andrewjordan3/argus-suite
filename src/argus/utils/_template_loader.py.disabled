@@ -1,0 +1,449 @@
+# argus/utils/template_loader.py
+
+"""
+Template Loader for ARGUS Fuel Card Forensics
+===================================================
+
+This module provides utilities for loading and accessing the english.yaml
+file, which contains all text templates, formatting preferences, and thresholds
+used in the forensic analysis reports.
+
+The ConfigLoader class provides:
+- YAML file loading with path resolution
+- Easy access to nested configuration values
+- Type-safe configuration access
+- Configuration validation
+
+Usage:
+    from argus.utils.config_loader import ConfigLoader
+
+    temp = TemplateLoader()
+    title = temp.get('report_header.main_title')
+    template = temp.get('executive_summary.no_findings.message')
+"""
+
+import logging
+from importlib.resources import as_file, files
+from importlib.resources.abc import Traversable
+from pathlib import Path
+from typing import Any, Literal
+
+import yaml
+
+from argus.schemas import Configuration, ConfigurationFormatting, RedFlags, ReportConfig
+
+# Set up a logger for this module
+logger: logging.Logger = logging.getLogger(__name__)
+
+__all__: list[str] = ['TemplateLoader', 'load_template']
+
+
+class TemplateLoader:
+    """
+    Loads and manages access to the ARGUS report template YAML file.
+
+    This class provides a centralized interface for accessing all report content,
+    templates, and configuration values defined in template.yaml.
+
+    Responsibilities:
+    - Load and parse YAML template files
+    - Provide dot-notation access to nested config values
+    - Validate configuration structure
+    - Cache configuration for performance
+
+    NOT responsible for:
+    - String formatting or template substitution (use ReportFormatter)
+    - Data transformation (use ReportFormatter)
+    """
+
+    def __init__(self, locale_filepath: str | Path | None = None) -> None:
+        """
+        Initialize the configuration loader.
+
+        Args:
+            locale_filepath: Optional path to locale file. If None, uses default location
+                        (argus/locales/english.yaml)
+
+        Raises:
+            FileNotFoundError: If config file doesn't exist
+            yaml.YAMLError: If config file is invalid YAML
+        """
+        logger.debug('Loading configuration from %r.', locale_filepath)
+        template_object: dict[str, Any] = {}
+        if locale_filepath is None:
+            try:
+                # Get the path to the locale yaml file within the package
+                resource: Traversable = files('argus').joinpath(
+                    'locales', 'english.yaml'
+                )
+                # Load the YAML configuration
+                # If the resource is inside a zip, as_file() exposes a temporary real path.
+                with as_file(resource) as temp_path:
+                    self.locale_path = Path(temp_path)  # filesystem path for repr()
+                    with Path.open(temp_path, encoding='utf-8') as f:
+                        template_object = yaml.safe_load(f)
+            except (ModuleNotFoundError, FileNotFoundError):
+                raise FileNotFoundError(
+                    f'Default configuration resource not found. Ensure {self.locale_path} '
+                    'is included in your pyproject.toml package_data.'
+                ) from None
+        else:
+            resource = Path(locale_filepath)
+            if not resource.exists():
+                raise FileNotFoundError(
+                    f'Configuration file not found: {resource}\n'
+                    f'Expected location: argus/locales/...'
+                )
+            self.locale_path: Path = resource  # filesystem path for repr()
+            # Load the YAML configuration
+            with Path.open(resource, encoding='utf-8') as f:
+                template_object = yaml.safe_load(f)
+
+        if not template_object:
+            raise ValueError(f'Configuration file is empty: {self.locale_path}')
+
+        # Cache the entire configuration
+        self._template: dict[str, Any] = template_object
+        self.pydantic_config: ReportConfig = ReportConfig(**template_object)
+
+        # Cache frequently accessed sections for performance
+        self._formatting_config: ConfigurationFormatting = self.pydantic_config.configuration.formatting
+        self._thresholds_config: Configuration = self.pydantic_config.configuration
+        self._red_flags_config: RedFlags = self.pydantic_config.red_flags
+
+    # ========================================================================
+    # Core Configuration Access Methods
+    # ========================================================================
+
+    def get(
+        self, key_path: str, default: Any = None
+    ) -> str | int | float | list[str] | dict[str, Any] | None:
+        """
+        Get a configuration value using dot notation.
+
+        Args:
+            key_path: Dot-separated path to the config value
+                     (e.g., 'report_header.main_title')
+            default: Default value if key not found
+
+        Returns:
+            The configuration value at the specified path, or default if not found
+
+        Examples:
+            >>> config.get('metadata.system.name')
+            'ARGUS'
+            >>> config.get('configuration.formatting.currency_symbol')
+            '$'
+            >>> config.get('nonexistent.key', 'default_value')
+            'default_value'
+        """
+        keys: list[str] = key_path.split('.')
+        config: dict[str, Any] = self._template
+        value: str | int | float | list[str] | dict[str, Any] | None = None
+
+        for key in keys:
+            value = config.get(key)
+            if value is None:
+                return default
+
+        return value
+
+    def get_section(self, section_name: str) -> dict[str, Any]:
+        """
+        Get an entire configuration section.
+
+        Args:
+            section_name: Name of the top-level section
+
+        Returns:
+            dictionary containing the entire section
+
+        Raises:
+            KeyError: If section doesn't exist
+        """
+        if section_name not in self._template:
+            raise KeyError(f"Configuration section '{section_name}' not found")
+        return self._template[section_name]
+
+    def list_sections(self) -> list[str]:
+        """Get a list of all top-level configuration sections."""
+        return list(self._template.keys())
+
+    # ========================================================================
+    # Cached Configuration Accessors
+    # ========================================================================
+
+    def get_formatting_config(self) -> dict[str, Any]:
+        """Get the complete formatting configuration section."""
+        return self._formatting_config.copy()
+
+    def get_thresholds_config(self) -> dict[str, Any]:
+        """Get the complete thresholds configuration section."""
+        return self._thresholds_config.copy()
+
+    def get_red_flags_config(self) -> dict[str, Any]:
+        """Get the complete red flags configuration section."""
+        return self._red_flags_config.copy()
+
+    # ========================================================================
+    # Specific Configuration Getters
+    # ========================================================================
+
+    def get_section_title(self, section_name: str) -> str:
+        """
+        Get the title for a report section.
+
+        Args:
+            section_name: Section key (e.g., 'executive_summary', 'temporal_analysis')
+
+        Returns:
+            Section title string
+        """
+        if not section_name:
+            return ''
+        section_title: str | int | float | list[str] | dict[str, Any] | None = self.get(
+            f'{section_name}.section_title'
+        )
+        if isinstance(section_title, str):
+            return section_title
+        else:
+            return f'{section_name.upper()}'
+
+    def get_table_headers(self, section_name: str) -> CompositeTableHeadersType:
+        """
+        Get table headers for a report section.
+
+        Args:
+            section_name: Section key (e.g., 'driver_analysis', 'vehicle_analysis')
+
+        Returns:
+            Header labels object
+        """
+        return getattr(self.pydantic_config, section_name).table_headers
+
+    def legacy_get_table_headers(self, section_name: str) -> dict[str, str]:
+        """
+        Get table headers for a report section.
+
+        Args:
+            section_name: Section key (e.g., 'driver_analysis', 'vehicle_analysis')
+
+        Returns:
+            dictionary of header labels
+        """
+        table_headers: dict[str, str] = {}
+        get_section: str | int | float | list[str] | dict[str, Any] | None = self.get(
+            f'{section_name}.table_headers', {}
+        )
+        if isinstance(get_section, dict):
+            table_headers = get_section
+        return table_headers
+
+    def get_interpretation(
+        self, test_type: str, is_significant: bool, object: bool = False
+    ) -> CompositeInterpType:
+        """
+        Get standardized interpretation text for a statistical test.
+
+        Args:
+            test_type: Type of test ('cost_distribution', 'rate_comparison')
+            is_significant: Whether result is significant
+            component: Optional specific component to retrieve
+
+        Returns:
+            Interpretation text template
+        """
+        if object:
+            match (test_type, is_significant):
+                case ('cost_distribution', True):
+                    return self.pydantic_config.test_interpretations.cost_distribution.significant
+                case ('cost_distribution', False):
+                    return self.pydantic_config.test_interpretations.cost_distribution.not_significant
+                case ('rate_comparison', True):
+                    return self.pydantic_config.test_interpretations.rate_comparison.significant
+                case ('rate_comparison', False):
+                    return self.pydantic_config.test_interpretations.rate_comparison.not_significant
+                case _:
+                    logger.warning(
+                        'ConfigLoader.get_interpretation got unknown arguments test_type=%r, is_significant=%r. Returning None.',
+                        test_type,
+                        is_significant,
+                    )
+                    return None
+
+    def legacy_get_interpretation(
+        self, test_type: str, is_significant: bool, object: bool = False
+    ) -> dict[str, str]:
+        """
+        Get standardized interpretation text for a statistical test.
+
+        Args:
+            test_type: Type of test ('cost_distribution', 'rate_comparison')
+            is_significant: Whether result is significant
+            component: Optional specific component to retrieve
+
+        Returns:
+            Interpretation text template
+        """
+        sig_key: Literal['significant'] | Literal['not_significant'] = (
+            'significant' if is_significant else 'not_significant'
+        )
+        base_path: str = f'test_interpretations.{test_type}.{sig_key}'
+        interpretation: dict[str, str] = {}
+
+        get_interp: str | int | float | list[str] | dict[str, Any] | None = self.get(
+            base_path, {}
+        )
+        if isinstance(get_interp, dict):
+            interpretation = get_interp
+
+        return interpretation
+
+    def get_red_flag_legend(self) -> dict[str, str]:
+        """
+        Get the complete red flag legend for multi-fillup analysis.
+
+        Returns:
+            dictionary mapping acronym to full description
+        """
+        legend: dict[str, str] = {}
+
+        # Process passenger vehicle indicators
+        pv_flags: dict[str, dict[str, str]] = self._red_flags_config.get(
+            'passenger_vehicle_indicators', {}
+        ).get('flags')
+        for acronym, info in pv_flags.items():
+            legend[acronym] = f'{info["full_name"]}: {info["description"]}'
+
+        # Process card misuse indicators
+        cm_flags: dict[str, dict[str, str]] = self._red_flags_config.get(
+            'card_misuse_indicators', {}
+        ).get('flags')
+        for acronym, info in cm_flags.items():
+            legend[acronym] = f'{info["full_name"]}: {info["description"]}'
+
+        return legend
+
+    def get_red_flag_weight(self, acronym: str) -> int:
+        """
+        Get the weight multiplier for a red flag acronym.
+
+        Args:
+            acronym: Red flag acronym (e.g., 'LC', 'ND', 'MF')
+
+        Returns:
+            Weight multiplier (1 or 2)
+        """
+        # Check passenger vehicle indicators (weight 2)
+        pv_flags: dict[str, dict[str, str]] = self._red_flags_config.get(
+            'passenger_vehicle_indicators', {}
+        ).get('flags', {})
+        if acronym in pv_flags:
+            return self._red_flags_config.get('passenger_vehicle_indicators', {}).get(
+                'weight_multiplier', 2
+            )
+
+        # Check card misuse indicators (weight 1)
+        cm_flags: dict[str, dict[str, str]] = self._red_flags_config.get(
+            'card_misuse_indicators', {}
+        ).get('flags', {})
+        if acronym in cm_flags:
+            return self._red_flags_config.get('card_misuse_indicators', {}).get(
+                'weight_multiplier', 1
+            )
+
+        return 1  # Default weight
+
+    def get_confidence_level(self) -> float:
+        """Get the configured default confidence level."""
+        return self._thresholds_config.get('statistical', {}).get(
+            'default_confidence_level', 0.95
+        )
+
+    def get_template_variables(self) -> dict[str, dict[str, Any]]:
+        """
+        Get the complete template variables reference.
+
+        Returns:
+            dictionary of all documented template variables and their metadata
+        """
+        template_vars: dict[str, dict[str, Any]] = {}
+        get_template_vars: str | int | float | list[str] | dict[str, Any] | None = (
+            self.get('template_variables', {})
+        )
+        if isinstance(get_template_vars, dict):
+            template_vars = get_template_vars
+        return template_vars
+
+    # ========================================================================
+    # Validation and Introspection
+    # ========================================================================
+
+    def validate_config(self) -> list[str]:
+        """
+        Validate that all required configuration sections exist.
+
+        Returns:
+            list of missing or invalid configuration keys (empty if valid)
+        """
+        required_sections: list[str] = [
+            'metadata',
+            'configuration',
+            'red_flags',
+            'statistical_methodology',
+            'executive_summary',
+            'report_footer',
+        ]
+
+        issues: list[str] = []
+
+        for section in required_sections:
+            if section not in self._template:
+                issues.append(f'Missing required section: {section}')
+
+        # Validate formatting subsection
+        if 'formatting' not in self._template.get('configuration', {}):
+            issues.append('Missing configuration.formatting section')
+
+        # Validate risk thresholds
+        risk_thresholds: dict[str, Any] = self._template.get('configuration', {}).get(
+            'risk_thresholds', {}
+        )
+        for level in ['critical', 'high', 'medium', 'low']:
+            if level not in risk_thresholds:
+                issues.append(f'Missing risk threshold: {level}')
+
+        return issues
+
+    def __repr__(self) -> str:
+        """String representation of ConfigLoader."""
+        return f"ConfigLoader(config_path='{self.locale_path}')"
+
+    def __str__(self) -> str:
+        """Human-readable string representation."""
+        sections: str = ', '.join(self.list_sections())
+        return f'ConfigLoader with {len(self.list_sections())} sections: {sections}'
+
+
+# ============================================================================
+# Convenience function for quick access
+# ============================================================================
+
+
+def load_template(config_path: str | Path | None = None) -> TemplateLoader:
+    """
+    Convenience function to load configuration.
+
+    Args:
+        config_path: Optional path to config file
+
+    Returns:
+        Initialized ConfigLoader instance
+
+    Example:
+        >>> from ARGUS.utils.config_loader import load_template
+        >>> config = load_template()
+        >>> print(config.get('metadata.system.name'))
+        ARGUS
+    """
+    return TemplateLoader(config_path)

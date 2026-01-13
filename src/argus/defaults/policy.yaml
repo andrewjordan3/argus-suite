@@ -1,0 +1,522 @@
+# =============================================================================
+# ARGUS FUEL CARD FORENSICS - ORGANIZATIONAL POLICY
+# =============================================================================
+# Analytics & Risk Governance Utility Suite (ARGUS)
+#
+# PURPOSE: Organizational thresholds, business rules, and domain-specific
+#          numeric parameters. These settings define WHAT constitutes risk,
+#          fraud indicators, and statistical significance for YOUR organization.
+#
+# CHANGE FREQUENCY: Infrequently - typically reviewed quarterly or when
+#                   business rules change. Changes affect interpretation of
+#                   ALL analyses, so document rationale for any modifications.
+#
+# RELATED FILES:
+#   - config.yaml:         Runtime settings (change per analysis)
+#   - locales/english.yaml: Text and formatting (change for localization)
+#
+# =============================================================================
+
+
+# =============================================================================
+# BUSINESS HOURS DEFINITION
+# =============================================================================
+# Defines "normal" operating hours for your fleet. Transactions outside these
+# hours are flagged as potentially suspicious (after-hours indicator).
+#
+# IMPORTANT: Adjust these to match your ACTUAL operations. A 24/7 operation
+#            should have different settings than a standard M-F business.
+# =============================================================================
+
+business_hours:
+  start_hour: 6
+  # Hour when business day begins (24-hour format, 0-23)
+  # Example: 6 = 6:00 AM
+
+  end_hour: 16
+  # Hour when business day ends (24-hour format, 0-23)
+  # Example: 16 = 4:00 PM (transactions AT 4:00 PM are within hours)
+  # Note: This is the START of the ending hour, so 16 means 4:00-4:59 PM is OK
+
+  days_of_week:
+    - 0  # Monday
+    - 1  # Tuesday
+    - 2  # Wednesday
+    - 3  # Thursday
+    - 4  # Friday
+  # Business days as integers (0=Monday, 6=Sunday)
+  # Transactions on unlisted days are flagged as "weekend/holiday"
+  #
+  # Common configurations:
+  #   Standard M-F:    [0, 1, 2, 3, 4]
+  #   6-day operation: [0, 1, 2, 3, 4, 5]
+  #   7-day operation: [0, 1, 2, 3, 4, 5, 6] (after-hours = time-based only)
+
+  # ---------------------------------------------------------------------------
+  # TIMEZONE HANDLING - READ CAREFULLY
+  # ---------------------------------------------------------------------------
+  # The interpretation of start_hour and end_hour depends on your timestamp data:
+  #
+  # SCENARIO A: Timezone-aware timestamps (RECOMMENDED)
+  #   - Your data includes timezone info (e.g., "2024-12-15T14:30:00-06:00")
+  #   - Timestamps are converted to UTC for storage and analysis
+  #   - Configure business hours IN UTC
+  #
+  #   Example for US Central (UTC-6):
+  #     Local business hours: 6 AM - 4 PM Central
+  #     UTC equivalent: 12:00 - 22:00 UTC
+  #     Set: start_hour: 12, end_hour: 22
+  #
+  #   Note: This approach handles DST correctly if your source data does.
+  #
+  # SCENARIO B: Timezone-naive timestamps
+  #   - Your data has no timezone info (e.g., "2024-12-15 14:30:00")
+  #   - Timestamps are treated as "local clock time" without conversion
+  #   - Configure business hours IN THE SAME LOCAL TIME as your data
+  #
+  #   Example:
+  #     Data recorded in local branch time: 6 AM - 4 PM
+  #     Set: start_hour: 6, end_hour: 16
+  #
+  #   Warning: If branches span multiple timezones with naive timestamps,
+  #   after-hours analysis may be less accurate for some locations.
+  #
+  # RECOMMENDATION: Use timezone-aware timestamps whenever possible.
+  # ---------------------------------------------------------------------------
+
+
+# =============================================================================
+# STATISTICAL SIGNIFICANCE SETTINGS
+# =============================================================================
+# Controls the rigor of statistical hypothesis testing. These settings determine
+# when ARGUS considers a finding "statistically significant" vs. random noise.
+#
+# CAUTION: Lowering thresholds increases false positives (crying wolf).
+#          Raising thresholds increases false negatives (missing real issues).
+#          The defaults are standard scientific conventions.
+# =============================================================================
+
+statistics:
+  confidence_level: 0.95
+  # Confidence level for hypothesis tests and confidence intervals
+  # 0.95 = 95% confidence (5% chance of false positive on any single test)
+  #
+  # Common values:
+  #   0.90 - More permissive, higher false positive rate
+  #   0.95 - Standard scientific threshold (RECOMMENDED)
+  #   0.99 - More conservative, may miss real issues
+
+  # ---------------------------------------------------------------------------
+  # P-Value Interpretation Thresholds
+  # ---------------------------------------------------------------------------
+  # These thresholds define how ARGUS labels and categorizes p-values in reports.
+  # They do NOT change the underlying statistics - only the verbal interpretation.
+  #
+  # A result is labeled:
+  #   "highly significant"  if p <= highly_significant
+  #   "very significant"    if p <= very_significant
+  #   "significant"         if p <= significant (and above highly/very)
+  #   "not significant"     if p >  significant
+  #
+  # Must satisfy: highly_significant < very_significant < significant
+
+  p_value_thresholds:
+    significant: 0.05
+    # Standard significance threshold (alpha level)
+    # Results with p <= 0.05 are considered "statistically significant"
+
+    very_significant: 0.01
+    # Results with p <= 0.01 provide stronger evidence
+
+    highly_significant: 0.001
+    # Results with p <= 0.001 provide very strong evidence
+
+  # ---------------------------------------------------------------------------
+  # Multiple Testing Correction
+  # ---------------------------------------------------------------------------
+  # When running many statistical tests, some will be "significant" by chance.
+  # FDR correction controls the expected proportion of false discoveries.
+
+  fdr_method: "benjamini_hochberg"
+  # Method for False Discovery Rate correction
+  # Currently only supports "benjamini_hochberg", which is the standard FDR control method.
+  # Future Planned Options:
+  #   "benjamini_yekutieli" - More conservative, valid under dependence
+  #   "bonferroni" - Very conservative family-wise error rate control
+  #   "none" - No correction (use only for exploratory analysis)
+
+
+# =============================================================================
+# DATA QUALITY REQUIREMENTS
+# =============================================================================
+# Minimum data requirements for various analyses. Entities or time periods
+# that don't meet these thresholds are excluded or flagged.
+# =============================================================================
+
+data_requirements:
+  monthend_threshold: 5
+  # Days from month-end to consider a month's data complete
+  # Used ONLY on the last month in the dataset.
+  #
+  # If the last transaction in the dataset is more than this many days before
+  # the month ends, that month is dropped from analysis as incomplete.
+  #
+  # Example: With threshold of 5, December data is considered complete only
+  #          if there's a transaction on or after December 26.
+  #
+  # Rationale: Partial months can skew rates and comparisons.
+
+  min_transactions_risk: 10
+  # Minimum transactions required to calculate a risk score for an entity
+  #
+  # Entities with fewer transactions are labeled "Insufficient Data" rather
+  # than assigned a potentially misleading score.
+  #
+  # Lower = more entities scored, but less reliable scores
+  # Higher = more reliable scores, but some entities excluded
+
+  min_transactions_temporal: 20
+  # Minimum transactions required for temporal/trend analysis
+  #
+  # Temporal analysis requires more data than basic risk scoring because
+  # it looks at patterns over time, not just aggregate rates.
+
+  min_months_temporal: 3
+  # Minimum months of activity required for temporal analysis
+  #
+  # Trend detection, change points, and seasonality require multiple
+  # time periods. Entities active for fewer months are excluded.
+
+  min_months_current_year: 3
+  # Minimum current-year months before splitting analysis periods
+  #
+  # When data spans multiple years, ARGUS can focus main analysis on
+  # the current year while using full history for temporal trends.
+  # This split only happens if current year has at least this many months.
+  #
+  # Example: If analyzing in March with threshold of 3, current year
+  #          has only 3 months - borderline for splitting.
+
+
+# =============================================================================
+# RISK SCORE THRESHOLDS
+# =============================================================================
+# Score boundaries for risk categories on the 0-100 scale.
+# Entities are categorized based on their composite risk score.
+#
+# These thresholds determine the LABELS and ACTIONS in reports.
+# Adjust based on your organization's risk tolerance and investigation capacity.
+# =============================================================================
+
+risk_thresholds:
+  critical: 75
+  # Score >= 75: CRITICAL RISK
+  # Action: Immediate investigation required
+  # These entities show multiple strong fraud indicators
+
+  high: 50
+  # Score >= 50 and < 75: HIGH RISK
+  # Action: Priority review recommended
+  # These entities show concerning patterns warranting attention
+
+  medium: 25
+  # Score >= 25 and < 50: MEDIUM RISK
+  # Action: Monitor for escalation
+  # These entities show some anomalies but may be explainable
+
+  # Score < 25: LOW RISK
+  # Action: Within normal parameters
+  # Standard monitoring sufficient
+
+
+# =============================================================================
+# ANOMALY DETECTION THRESHOLDS
+# =============================================================================
+# Rate thresholds that trigger concern for specific indicators.
+# Expressed as decimals (0.20 = 20%), NOT percentages.
+#
+# When an entity's rate exceeds these thresholds, that indicator contributes
+# to their risk score and is highlighted in reports.
+# =============================================================================
+
+anomaly_thresholds:
+  high_no_eld_rate: 0.20
+  # Threshold for "high" rate of transactions without ELD verification
+  # 0.20 = 20% or more of transactions have no matching ELD record
+  #
+  # Context: Some legitimate transactions won't match ELD (yard moves,
+  # equipment without telematics). 20% is concerning for most fleets.
+  # Adjust based on your ELD coverage and data quality.
+
+  high_non_diesel_rate: 0.15
+  # Threshold for "high" rate of non-diesel/DEF purchases
+  # 0.15 = 15% or more of transactions are gasoline, additives, etc.
+  #
+  # Context: Commercial diesel fleets should have very low non-diesel.
+  # Mixed fleets (diesel + gasoline vehicles) should raise this threshold.
+  # Personal vehicle misuse typically shows gasoline purchases.
+
+  high_after_hours_rate: 0.25
+  # Threshold for "high" rate of transactions outside business hours
+  # 0.25 = 25% or more of transactions occur after hours or on weekends
+  #
+  # Context: Some after-hours activity is normal (early starts, late runs).
+  # Long-haul operations may have higher legitimate after-hours rates.
+  # Adjust based on your operational patterns.
+
+
+# =============================================================================
+# COMPOSITE RISK SCORE WEIGHTS
+# =============================================================================
+# How much each factor contributes to an entity's composite risk score.
+# Weights MUST sum to exactly 1.0.
+#
+# Adjust based on your organization's fraud patterns and priorities.
+# Higher weight = more influence on the final risk score.
+# =============================================================================
+
+risk_weights:
+  no_eld_match: 0.30
+  # Weight for "no ELD match" indicator
+  # Transactions that cannot be verified against vehicle telemetry
+  #
+  # Rationale: Highest weight because ELD verification is the strongest
+  # control against fuel card misuse. Unable to verify = highest concern.
+
+  non_diesel: 0.25
+  # Weight for "non-diesel purchase" indicator
+  # Purchases of gasoline, premium, or other non-fleet fuels
+  #
+  # Rationale: Strong indicator of personal vehicle use (card misuse).
+  # A diesel fleet buying gasoline is inherently suspicious.
+
+  after_hours: 0.25
+  # Weight for "after hours" indicator
+  # Transactions outside defined business hours and days
+  #
+  # Rationale: Significant indicator, but legitimate after-hours use
+  # exists. Weighted equally with non-diesel.
+
+  high_cost: 0.20
+  # Weight for "elevated cost" indicator
+  # Transactions with unusually high dollar amounts
+  #
+  # Rationale: Lowest weight because legitimate business variation
+  # can cause high costs (full tanks, DEF purchases, regional prices).
+
+  # -------------------------------------------------------------------------
+  # VALIDATION: Weights must sum to 1.0
+  # 0.30 + 0.25 + 0.25 + 0.20 = 1.00 ✓
+  # -------------------------------------------------------------------------
+
+
+# =============================================================================
+# EFFECT SIZE INTERPRETATION
+# =============================================================================
+# Thresholds for interpreting the MAGNITUDE of statistical effects.
+# These are standard conventions from statistical literature.
+#
+# Purpose: A statistically significant result may not be PRACTICALLY significant.
+# Effect sizes tell us whether differences are large enough to matter.
+# =============================================================================
+
+effect_size_interpretation:
+  # ---------------------------------------------------------------------------
+  # Cliff's Delta (non-parametric effect size, range: -1 to +1)
+  # ---------------------------------------------------------------------------
+  # Measures the probability that a randomly selected value from one group
+  # will be greater than a randomly selected value from another group.
+  # Used for: Transaction cost comparisons, ordinal data
+
+  cliffs_delta:
+    negligible: 0.147
+    # |δ| < 0.147: Effect is negligible/trivial
+    # The groups are essentially indistinguishable
+
+    small: 0.33
+    # 0.147 <= |δ| < 0.33: Small effect
+    # Detectable difference but modest practical importance
+
+    medium: 0.474
+    # 0.33 <= |δ| < 0.474: Medium effect
+    # Meaningful practical difference
+
+    # large is implicitly |δ| >= medium
+    # |δ| >= 0.474: Large effect
+    # Substantial practical difference
+
+  # ---------------------------------------------------------------------------
+  # Cohen's d (standardized mean difference)
+  # ---------------------------------------------------------------------------
+  # Measures the difference between two means in standard deviation units.
+  # Used for: Continuous variables with approximately normal distributions
+
+  cohens_d:
+    negligible: 0.2
+    # |d| < 0.2: Negligible effect
+
+    small: 0.5
+    # 0.2 <= |d| < 0.5: Small effect
+
+    medium: 0.8
+    # 0.5 <= |d| < 0.8: Medium effect
+
+    # large is implicitly |d| >= medium
+    # |d| >= 0.8: Large effect (999 = no upper bound)
+
+  # ---------------------------------------------------------------------------
+  # Risk Ratio Interpretation
+  # ---------------------------------------------------------------------------
+  # How many times more likely an event is in the target group vs. baseline.
+  # RR = 1.0 means no difference; RR = 2.0 means twice as likely.
+
+  risk_ratio:
+    substantial: 2.0
+    # RR >= 2.0: Substantial difference
+    # Target is at least twice as likely to have the event
+
+    major_concern: 3.0
+    # RR >= 3.0: Major concern
+    # Target is at least three times as likely - warrants investigation
+
+  # ---------------------------------------------------------------------------
+  # Odds Ratio Interpretation
+  # ---------------------------------------------------------------------------
+  # Strength of association between group membership and event occurrence.
+  # OR = 1.0 means no association.
+
+  odds_ratio:
+    strong: 3.0
+    # OR >= 3.0: Strong association
+
+    very_strong: 10.0
+    # OR >= 10.0: Very strong association
+
+  # ---------------------------------------------------------------------------
+  # Risk Difference Interpretation
+  # ---------------------------------------------------------------------------
+  # Absolute difference in event rates between groups (0.10 = 10 percentage points).
+
+  risk_difference:
+    practically_significant: 0.10
+    # RD >= 0.10 (10 percentage points): Practically significant
+    # Example: 25% vs 15% = 10pp difference
+
+    major_difference: 0.20
+    # RD >= 0.20 (20 percentage points): Major difference
+    # Example: 35% vs 15% = 20pp difference
+
+
+# =============================================================================
+# RED FLAG DEFINITIONS - WEIGHTS AND SCORING
+# =============================================================================
+# Numeric weights for multi-fillup analysis red flags.
+# These weights determine how much each flag type contributes to suspicion scores.
+#
+# The suspicion score formula:
+#   Score = (Passenger vehicle indicators × passenger_weight_multiplier) +
+#           (Card misuse indicators × misuse_weight_multiplier)
+# =============================================================================
+
+red_flag_weights:
+  # Passenger vehicle indicators are weighted more heavily because they
+  # directly suggest the fuel card is being used for non-fleet vehicles
+  passenger_vehicle_multiplier: 2
+
+  # Card misuse indicators suggest policy violations but could have
+  # legitimate explanations in some cases
+  card_misuse_multiplier: 1
+
+  # ---------------------------------------------------------------------------
+  # Individual Flag Weights (within their category)
+  # ---------------------------------------------------------------------------
+  # These can be customized if certain flags are more/less concerning
+  # for your organization. Default: all flags equal weight of 1.
+
+  individual_weights:
+    # Passenger Vehicle Indicators
+    low_cost: 1       # LC - Transaction amount below fleet norms
+    low_volume: 1     # LV - Fuel volume below fleet tank sizes
+    non_diesel: 1     # ND - Gasoline or non-fleet fuel type
+
+    # Card Misuse Indicators
+    multiple_fillups: 1    # MF - Multiple transactions same day
+    multiple_stations: 1   # MS - Multiple stations same day
+    no_eld_match: 1        # NE - No telematics verification
+    rapid_succession: 1    # RS - Transactions within 1 hour
+
+
+# =============================================================================
+# TEMPORAL ANALYSIS THRESHOLDS
+# =============================================================================
+# Thresholds for detecting patterns over time (change points, spikes, trends).
+# =============================================================================
+
+temporal_analysis:
+  # ---------------------------------------------------------------------------
+  # Sudden Spike Detection
+  # ---------------------------------------------------------------------------
+  spike_threshold_pct: 50
+  # Percentage increase from prior month to flag as "sudden spike"
+  # 50 = 50% increase month-over-month triggers spike flag
+  # Example: 20 events in January, 30+ events in February = spike
+
+  spike_percentile: 95
+  # Percentile threshold vs. baseline for spike detection
+  # 95 = Month's value exceeds 95th percentile of historical baseline
+
+  # ---------------------------------------------------------------------------
+  # Gradual Escalation Detection
+  # ---------------------------------------------------------------------------
+  consecutive_increase_months: 3
+  # Consecutive months of increases to flag "gradual escalation"
+  # 3 = Three months in a row of increasing values triggers flag
+
+  # ---------------------------------------------------------------------------
+  # Period Comparison (First Half vs Second Half)
+  # ---------------------------------------------------------------------------
+  period_change_threshold: 0.30
+  # Minimum change ratio to flag period comparison as concerning
+  # 0.30 = Second half is 30%+ higher than first half
+
+  # ---------------------------------------------------------------------------
+  # Autocorrelation (Persistent Behavior)
+  # ---------------------------------------------------------------------------
+  autocorrelation_threshold: 0.6
+  # Lag-1 autocorrelation threshold to flag "persistent pattern"
+  # 0.6 = Correlation of 0.6+ between consecutive months
+  # High autocorrelation indicates systematic (not random) behavior
+
+  # ---------------------------------------------------------------------------
+  # Off-Hours Concentration Pattern
+  # ---------------------------------------------------------------------------
+  off_hours_concentration_threshold: 0.60
+  # Proportion of transactions outside business hours to flag pattern
+  # 0.60 = 60%+ of transactions are after hours or weekends
+
+  # ---------------------------------------------------------------------------
+  # Spike-and-Retreat Pattern
+  # ---------------------------------------------------------------------------
+  retreat_drop_threshold: 0.40
+  # Percentage drop after spike to flag "spike and retreat" pattern
+  # 0.40 = 40%+ drop following a spike suggests testing thresholds
+
+
+# =============================================================================
+# GEOGRAPHIC ANALYSIS THRESHOLDS
+# =============================================================================
+# Thresholds for flagging suspicious station usage patterns.
+# =============================================================================
+
+geographic_analysis:
+  suspicious_non_diesel_rate: 0.25
+  # Station-level non-diesel rate to flag as suspicious
+  # 0.25 = 25%+ of transactions at this station are non-diesel
+
+  suspicious_no_eld_rate: 0.40
+  # Station-level no-ELD rate to flag as suspicious
+  # 0.40 = 40%+ of transactions at this station lack ELD verification
+
+  low_avg_cost_percentile: 10
+  # Percentile threshold for "suspiciously low average cost" at a station
+  # 10 = Station's average cost is below the 10th percentile fleet-wide

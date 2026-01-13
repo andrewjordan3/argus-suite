@@ -1,0 +1,1313 @@
+# =============================================================================
+# ARGUS FUEL CARD FORENSICS - ENGLISH LOCALIZATION
+# =============================================================================
+# Locale: en-US | All user-facing text, templates, and formatting.
+# For other languages, create parallel files (e.g., spanish.yaml).
+#
+# TEMPLATE VARIABLES:
+#   - Use {variable_name} syntax for dynamic values
+#   - Policy-derived values use {policy.*} convention (populated from policy.yaml)
+#   - Runtime values use descriptive names (populated from analysis results)
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# LOCALE SETTINGS - Number, currency, date formatting
+# -----------------------------------------------------------------------------
+locale:
+  language_code: "en-US"
+  language_name: "English (US)"
+
+  # Number formatting
+  thousands_separator: ","
+  decimal_separator: "."
+  number_decimals: 0
+
+  # Currency formatting
+  currency_symbol: "$"
+  currency_position: "before"  # "before" ($100) or "after" (100$)
+  currency_decimals: 2
+
+  # Percentage formatting
+  percentage_decimals: 1
+  percentage_symbol: "%"
+
+  # Statistical value formatting
+  p_value_decimals: 3
+  effect_size_decimals: 3
+  confidence_interval_decimals: 2
+
+  # Date/time formatting (Python strftime)
+  date_format: "%Y-%m-%d"
+  datetime_format: "%Y-%m-%d %H:%M:%S"
+  month_format: "%Y-%m"
+
+  # Report layout
+  output_width: 100
+
+# -----------------------------------------------------------------------------
+# SYSTEM METADATA - Branding and identification
+# -----------------------------------------------------------------------------
+metadata:
+  system_name: "ARGUS"
+  system_full_name: "Analytics & Risk Governance Utility Suite"
+  subtitle: "FUEL CARD FORENSICS — EXECUTIVE ANALYSIS SUITE"
+  version: "0.1.0"
+  report_type: "Fuel Card Forensic Analysis Report"
+  classification: "Internal Use - Contains Sensitive Data"
+
+# -----------------------------------------------------------------------------
+# TEMPLATE VARIABLE REFERENCE - Developer documentation
+# Variables populated at runtime from policy.yaml, config.yaml, or analysis
+# -----------------------------------------------------------------------------
+_variable_reference:
+  # --- Policy-derived variables (from policy.yaml) ---
+  # These use {policy.*} naming convention and are injected by the report generator
+  policy:
+    # Statistical thresholds
+    confidence_level: "e.g., 0.95"
+    confidence_pct: "e.g., '95%' - formatted for display"
+    alpha: "1 - confidence_level"
+    p_significant: "p-value threshold for significance (e.g., 0.05)"
+    p_very_significant: "p-value threshold for very significant (e.g., 0.01)"
+    p_highly_significant: "p-value threshold for highly significant (e.g., 0.001)"
+    very_significant_confidence_pct: "e.g., '99%'"
+    highly_significant_confidence_pct: "e.g., '99.9%'"
+
+    # Risk thresholds
+    risk_critical: "Score threshold for critical risk (e.g., 75)"
+    risk_high: "Score threshold for high risk (e.g., 50)"
+    risk_medium: "Score threshold for medium risk (e.g., 25)"
+    risk_critical_minus_one: "risk_critical - 1 for range display"
+    risk_high_minus_one: "risk_high - 1 for range display"
+    risk_medium_minus_one: "risk_medium - 1 for range display"
+
+    # Anomaly thresholds (as percentages for display)
+    high_no_eld_pct: "No ELD rate threshold as percentage (e.g., '20%')"
+    high_non_diesel_pct: "Non-diesel rate threshold as percentage (e.g., '15%')"
+    high_after_hours_pct: "After-hours rate threshold as percentage (e.g., '25%')"
+
+    # Effect size thresholds
+    cliffs_delta_negligible: "Cliff's delta negligible threshold (e.g., 0.15)"
+    cliffs_delta_small: "Cliff's delta small threshold (e.g., 0.33)"
+    cliffs_delta_medium: "Cliff's delta medium threshold (e.g., 0.47)"
+    cohens_d_negligible: "Cohen's d negligible threshold (e.g., 0.2)"
+    cohens_d_small: "Cohen's d small threshold (e.g., 0.5)"
+    cohens_d_medium: "Cohen's d medium threshold (e.g., 0.8)"
+    risk_ratio_substantial: "Risk ratio substantial threshold (e.g., 2.0)"
+    risk_ratio_major: "Risk ratio major concern threshold (e.g., 3.0)"
+    odds_ratio_strong: "Odds ratio strong threshold (e.g., 3.0)"
+    odds_ratio_very_strong: "Odds ratio very strong threshold (e.g., 10.0)"
+    risk_diff_practical: "Risk difference practical significance (e.g., 0.10)"
+    risk_diff_practical_pct: "Risk difference as percentage (e.g., '10%')"
+    risk_diff_major: "Risk difference major threshold (e.g., 0.20)"
+    risk_diff_major_pct: "Risk difference major as percentage (e.g., '20%')"
+
+    # Temporal analysis thresholds
+    spike_threshold_pct: "Month-over-month spike percentage (e.g., '50')"
+    spike_percentile: "Percentile threshold for spikes (e.g., '95')"
+    consecutive_months: "Consecutive months for escalation (e.g., '3')"
+    autocorrelation_threshold: "Autocorrelation significance threshold (e.g., 0.6)"
+    off_hours_threshold_pct: "Off-hours concentration percentage (e.g., '60')"
+    retreat_drop_pct: "Spike-retreat drop percentage (e.g., '40')"
+    period_change_pct: "Period comparison change percentage (e.g., '30')"
+
+    # Data requirements
+    min_transactions_risk: "Min transactions for risk scoring (e.g., 10)"
+    min_transactions_temporal: "Min transactions for temporal analysis (e.g., 20)"
+    min_months_temporal: "Min months for temporal analysis (e.g., 3)"
+
+    # Red flag weights
+    passenger_weight: "Weight multiplier for passenger vehicle flags"
+    misuse_weight: "Weight multiplier for card misuse flags"
+
+    # Business hours (formatted for display)
+    business_hours_range: "e.g., 'M-F, 6am-4pm'"
+
+  # --- Runtime variables (from analysis results) ---
+  # These are populated dynamically during report generation
+  runtime:
+    # Location and time context
+    target_location: "Branch name being analyzed"
+    target_location_number: "Numeric ID of target branch"
+    analysis_period: "Human-readable period string (e.g., '2025 YTD (Jan-Mar)')"
+    report_date: "YYYY-MM-DD generation date"
+    date_min: "Analysis period start date"
+    date_max: "Analysis period end date"
+    min_year: "Earliest year in dataset"
+    current_year: "Most recent year in dataset"
+    num_months_current_year: "Months of data in current year"
+
+    # Computed statistical parameters
+    alpha: "Significance threshold (1 - confidence_level)"
+    confidence_level: "Statistical confidence level (e.g., 0.95)"
+
+    # Data quality variables
+    count: "Generic count (context-dependent)"
+    percentage: "Generic percentage (context-dependent)"
+    column: "Column name for data quality reports"
+    check_name: "Validation check name"
+    lower: "Lower bound for outlier range"
+    upper: "Upper bound for outlier range"
+    bounds: "Formatted bounds string"
+
+    # Generic formatting
+    label: "Generic label text"
+    value: "Generic value"
+    index: "1-indexed position in lists"
+    top_n: "Number of items to display"
+
+    # Statistical test results
+    test_name: "Name of statistical test"
+    p_value: "Raw p-value from test"
+    q_value: "FDR-adjusted p-value"
+    clean_p_value: "P-value formatted for display"
+    risk_ratio: "Ratio of target rate to baseline rate"
+    odds_ratio: "Odds ratio from contingency analysis"
+    effect_size: "Standardized effect size"
+    mean_difference: "Difference in means between groups"
+    risk_diff: "Absolute difference in rates"
+    direction: "Direction of effect (higher/lower)"
+    magnitude: "Effect size magnitude label"
+
+    # Rate comparisons
+    target_rate: "Event rate in target location"
+    baseline_rate: "Event rate in baseline (other branches)"
+    target_avg: "Mean value in target location"
+    baseline_avg: "Mean value in baseline"
+    target_count: "Event count in target"
+    baseline_count: "Event count in baseline"
+
+    # Financial variables
+    total_cost: "Sum of transaction costs"
+    avg_cost: "Mean transaction cost"
+    excess_count: "Count of excess unverified transactions"
+    total_exposure: "Estimated financial exposure"
+    ci_low: "Lower bound of confidence interval"
+    ci_high: "Upper bound of confidence interval"
+
+    # Entity analysis variables
+    driver_name: "Driver's full name"
+    risk_score: "Composite risk score (0-100)"
+    risk_category: "Risk category label (Critical/High/Medium/Low)"
+    transaction_count: "Number of transactions"
+    unique_vehicles: "Count of unique vehicles used"
+    no_eld_rate: "Rate of transactions without ELD match"
+    non_diesel_rate: "Rate of non-diesel purchases"
+    after_hours_rate: "Rate of after-hours transactions"
+
+    # Product breakdown
+    product: "Product type name"
+
+    # Multi-fillup analysis
+    multi_fillup_days: "Days with multiple fillups"
+    max_fillups_one_day: "Maximum fillups in a single day"
+    avg_cost_multi_fillup_days: "Average cost on multi-fillup days"
+    total_events: "Total multi-fillup events"
+    total_drivers: "Total drivers involved"
+    avg_fillups: "Average fillups per event"
+    high_suspicion_count: "Count of high-suspicion events"
+
+    # Geographic analysis
+    station_name: "Fuel station name"
+    rate: "Generic rate for station flags"
+    cost: "Generic cost for station flags"
+    flags: "Concatenated flag indicators"
+
+    # Temporal analysis - summary
+    total_entities: "Total entities analyzed"
+    critical_count: "Count of critical-risk entities"
+    critical_pct: "Percentage of critical-risk entities"
+    high_risk_count: "Count of high-risk entities"
+    high_risk_pct: "Percentage of high-risk entities"
+    high_count: "Count for high category in distribution"
+    medium_count: "Count for medium category in distribution"
+    low_count: "Count for low category in distribution"
+    with_change_points: "Entities with detected change points"
+    with_change_points_pct: "Percentage with change points"
+    with_trends: "Entities with concerning trends"
+    with_trends_pct: "Percentage with trends"
+    with_fraud_patterns: "Entities with fraud patterns"
+    with_fraud_patterns_pct: "Percentage with fraud patterns"
+    with_current_risks: "Entities with current active risks"
+    with_current_risks_pct: "Percentage with current risks"
+
+    # Temporal analysis - entity details
+    entity_type: "Type of entity (Driver/Vehicle)"
+    display_id: "Display identifier for entity"
+    truck_description: "Vehicle year/make/model description"
+    months_active: "Number of months with activity"
+    total_transactions: "Total transactions for entity"
+    factor: "Risk factor description"
+    metric: "Metric name for temporal analysis"
+    percentile: "Percentile value"
+    months: "Month labels (comma-separated)"
+    consecutive: "Count of consecutive months"
+    volatility_score: "Volatility score value"
+    month: "Single month label"
+    date: "Date string"
+    dates: "Multiple dates (comma-separated)"
+    correlation: "Autocorrelation coefficient"
+    level: "Persistence level label"
+    z_score: "Z-score value"
+    max_z_score: "Maximum z-score"
+    indicator: "Trend indicator description"
+    result: "Period comparison result"
+    mean_risk: "Mean risk score"
+    median_risk: "Median risk score"
+
+    # Fraud timeline
+    peak_month: "Month with peak change activity"
+    peak_count: "Count of changes at peak"
+    peak_months: "Multiple peak months (comma-separated)"
+    early_pct: "Percentage of early changes"
+    late_pct: "Percentage of late changes"
+
+    # Comparative analysis
+    target_mean: "Mean risk score for target"
+    target_median: "Median risk score for target"
+    others_mean: "Mean risk score for other branches"
+    others_median: "Median risk score for other branches"
+    p25: "25th percentile"
+    p75: "75th percentile"
+    n: "Sample size"
+    delta: "Cliff's delta value"
+    interpretation: "Effect size interpretation"
+    probability: "Probability for effect size explanation"
+    comparison_entity: "Entity being compared (target/other)"
+
+    # Report footer
+    total_records: "Total records in full dataset"
+    analysis_records: "Records in analysis period"
+    target_records: "Records for target location"
+    target_pct: "Target percentage of total"
+    other_records: "Records for other branches"
+    other_pct: "Other branches percentage of total"
+    eld_match_rate: "Overall ELD match rate"
+    total_tests: "Total statistical tests performed"
+    significant_count: "Count of significant tests"
+    significant_pct: "Percentage of significant tests"
+    system_name: "System name from metadata"
+    version: "System version from metadata"
+
+# -----------------------------------------------------------------------------
+# RISK CATEGORY LABELS - Display text for risk levels
+# -----------------------------------------------------------------------------
+risk_categories:
+  critical:
+    label: "Critical"
+    action: "Immediate investigation required"
+  high:
+    label: "High"
+    action: "Priority review recommended"
+  medium:
+    label: "Medium"
+    action: "Monitor for escalation"
+  low:
+    label: "Low"
+    action: "Within normal parameters"
+
+# -----------------------------------------------------------------------------
+# EFFECT SIZE LABELS - Interpretation text for magnitude
+# -----------------------------------------------------------------------------
+effect_size_labels:
+  cliffs_delta:
+    negligible: "negligible"
+    small: "small"
+    medium: "medium"
+    large: "large"
+
+  cohens_d:
+    negligible: "negligible"
+    small: "small"
+    medium: "medium"
+    large: "large"
+
+  direction:
+    higher: "higher"
+    lower: "lower"
+
+# -----------------------------------------------------------------------------
+# RED FLAG DEFINITIONS - Acronyms and descriptions
+# -----------------------------------------------------------------------------
+red_flags:
+  passenger_vehicle_indicators:
+    title: "PASSENGER VEHICLE INDICATORS (Primary fraud pattern)"
+    emoji: "🚗"
+    flags:
+      LC:
+        acronym: "LC"
+        full_name: "Low Cost"
+        description: "Lower amounts indicate smaller fills inconsistent with truck operations"
+      LV:
+        acronym: "LV"
+        full_name: "Low Volume"
+        description: "Smaller tanks suggest passenger vehicles, not commercial trucks"
+      ND:
+        acronym: "ND"
+        full_name: "Non-Diesel"
+        description: "Gasoline is a primary indicator of passenger vehicle use"
+
+  card_misuse_indicators:
+    title: "CARD MISUSE INDICATORS"
+    emoji: "⚠"
+    flags:
+      MF:
+        acronym: "MF"
+        full_name: "Multiple Fillups"
+        description: "Highly unusual for legitimate commercial operations"
+      MS:
+        acronym: "MS"
+        full_name: "Multiple Stations"
+        description: "Suggests geographic dispersion or card sharing"
+      NE:
+        acronym: "NE"
+        full_name: "No ELD Match"
+        description: "Cannot verify against vehicle telemetry"
+      RS:
+        acronym: "RS"
+        full_name: "Rapid Succession"
+        description: "Multiple fills within 1 hour (logistically suspicious)"
+
+  suspicion_score_formula: "Suspicion Score = (Passenger indicators × {policy.passenger_weight}) + (Card misuse indicators × {policy.misuse_weight})"
+
+# =============================================================================
+# REPORT SECTIONS
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# REPORT HEADER
+# -----------------------------------------------------------------------------
+report_header:
+  main_title: "ARGUS: ANALYTICS & RISK GOVERNANCE UTILITY SUITE"
+  subtitle: "FUEL CARD FORENSICS — EXECUTIVE ANALYSIS"
+
+  labels:
+    report_date: "Report Date"
+    analysis_period: "Main Analysis Period"
+    confidence_level: "Statistical Confidence Level"
+    target_location: "Target Location"
+    location_id: "Location ID"
+
+# -----------------------------------------------------------------------------
+# DATA PREPARATION SECTION
+# -----------------------------------------------------------------------------
+data_preparation:
+  section_title: "DATA PREPARATION SUMMARY"
+
+  labels:
+    initial_records: "Initial records loaded (ELD & Fuel)"
+    duplicates_removed: "Duplicate records removed"
+    incomplete_removed: "Incomplete month records removed"
+    final_records: "Final cleaned records after merging"
+    retention_rate: "Data retention rate"
+
+  messages:
+    duplicates_found: "   - Duplicate records removed: {count} ({percentage})"
+    incomplete_found: "   - Incomplete month records removed: {count} ({percentage})"
+
+# -----------------------------------------------------------------------------
+# DATA QUALITY SECTION
+# -----------------------------------------------------------------------------
+data_quality:
+  section_title: "DATA QUALITY ASSESSMENT"
+
+  subsections:
+    missing_values: "Missing Values (Top 5 by percentage):"
+    validity_issues: "Data Validity Issues Detected:"
+    outliers: "Outliers Detected (IQR method, Top 5 by count):"
+
+  labels:
+    total_after_cleaning: "✓ Total records after cleaning"
+    duplicates_removed: "✓ Duplicate records removed"
+    remaining_duplicates: "⚠ Warning: {count} duplicates still present"
+
+  messages:
+    missing_value_item: "   • {column}: {count} missing ({percentage})"
+    validity_item: "   • {check_name}: {count} instances ({percentage})"
+    outlier_item: "   • {column}: {count} outliers ({percentage}){bounds}"
+    outlier_bounds: " | Valid range: [{lower}, {upper}]"
+
+  assessments:
+    excellent: "✓ ASSESSMENT: Data quality is excellent. No critical issues detected."
+    minor_issues: "⚠ ASSESSMENT: Minor data quality issues detected. Review recommended."
+    multiple_issues: "⚠ ASSESSMENT: Multiple data quality issues detected. Thorough review required."
+
+# -----------------------------------------------------------------------------
+# ANALYSIS SCOPE SECTION
+# -----------------------------------------------------------------------------
+analysis_scope:
+  section_title: "DATA ANALYSIS SCOPE"
+  final_scope_title: "FINAL ANALYSIS SCOPE"
+
+  labels:
+    branches: "Branches"
+    date_range: "Date Range"
+    total_transactions: "Total Transactions"
+
+  format: "  • {label}: {value}"
+
+  scenarios:
+    split:
+      description: |
+        • Data spans multiple years ({min_year}-{current_year}) with sufficient current-year data ({num_months_current_year} months).
+        • Main (Aggregate) Analysis will be FOCUSED on the current year ({current_year}) to highlight recent patterns.
+        • Temporal Analysis will use the FULL date range to establish a historical baseline and detect changes over time.
+        • RATIONALE: This split prevents older, 'normal' data from diluting or masking emerging issues in the aggregate report,
+          while leveraging the full history to provide context for the temporal trend analysis.
+
+    insufficient:
+      description: |
+        • Data spans multiple years, but current year has insufficient data ({num_months_current_year} months).
+        • Main and Temporal analysis will use the full date range.
+        • RATIONALE: Without enough data in the current year, splitting is not statistically sound. A unified analysis period is used.
+
+    single:
+      description: |
+        • Data is within a single year or has insufficient history for a meaningful split.
+        • Main and Temporal analysis will use the same unified dataset.
+        • RATIONALE: No split is necessary as the data does not cross multiple years.
+
+# -----------------------------------------------------------------------------
+# STATISTICAL METHODOLOGY SECTION
+# -----------------------------------------------------------------------------
+statistical_methodology:
+  section_title: "STATISTICAL METHODOLOGY & INTERPRETATION GUIDE"
+
+  introduction: |
+    This analysis employs established statistical techniques to ensure defensible conclusions:
+
+  effect_sizes:
+    section_header: "EFFECT SIZE MEASURES"
+
+    risk_ratio:
+      label: "Risk Ratio (RR)"
+      description: "How many times more likely the event is to happen in {target_location} vs other branches."
+      interpretation:
+        - "RR = 1.0: No difference"
+        - "RR > {policy.risk_ratio_substantial}: Substantial difference"
+        - "RR > {policy.risk_ratio_major}: Major concern"
+
+    odds_ratio:
+      label: "Odds Ratio (OR)"
+      description: "Strength of the association between the location and the event."
+      interpretation:
+        - "OR = 1.0: No association"
+        - "OR > {policy.odds_ratio_strong}: Strong association"
+        - "OR > {policy.odds_ratio_very_strong}: Very strong"
+
+    risk_difference:
+      label: "Risk Difference (RD)"
+      description: "The absolute difference in event rates (proportions) between groups, showing the size of the gap."
+      interpretation:
+        - "RD > {policy.risk_diff_practical} ({policy.risk_diff_practical_pct}): Practically significant"
+        - "RD > {policy.risk_diff_major} ({policy.risk_diff_major_pct}): Major difference"
+
+  significance:
+    section_header: "STATISTICAL SIGNIFICANCE"
+
+    p_value:
+      label: "P-value"
+      description: "Probability of observing data at least as extreme as the observed, assuming the null hypothesis is true."
+      interpretation:
+        - "p < {policy.p_significant}: Statistically significant* ({policy.confidence_pct} confidence)"
+        - "p < {policy.p_very_significant}: Highly significant** ({policy.very_significant_confidence_pct} confidence)"
+        - "p < {policy.p_highly_significant}: Extremely significant*** ({policy.highly_significant_confidence_pct} confidence)"
+      note: "Significance threshold: α = {alpha:.2f} (confidence level = {confidence_level:.2f})."
+
+    confidence_intervals:
+      label: "Confidence Intervals (CI)"
+      description: "Range of plausible values for the true effect"
+      interpretation: "A (1−α) CI excluding 1.0 for ratios (or 0.0 for differences) indicates significance at level α."
+
+  non_parametric:
+    section_header: "NON-PARAMETRIC TESTS"
+
+    mann_whitney:
+      label: "Mann-Whitney U"
+      description: "Compares distributions without assuming normality"
+
+    cliffs_delta:
+      label: "Cliff's Delta"
+      description: "Effect size for ordinal data (-1 to +1). Larger |δ| indicates stronger stochastic dominance."
+      interpretation:
+        - "|δ| < {policy.cliffs_delta_negligible}: Negligible"
+        - "{policy.cliffs_delta_negligible}-{policy.cliffs_delta_small}: Small"
+        - "{policy.cliffs_delta_small}-{policy.cliffs_delta_medium}: Medium"
+        - "> {policy.cliffs_delta_medium}: Large"
+
+    cohens_d:
+      label: "Cohen's d"
+      description: "Standardized mean difference between groups."
+      interpretation:
+        - "|d| < {policy.cohens_d_negligible}: Negligible"
+        - "{policy.cohens_d_negligible}-{policy.cohens_d_small}: Small"
+        - "{policy.cohens_d_small}-{policy.cohens_d_medium}: Medium"
+        - "> {policy.cohens_d_medium}: Large"
+
+  independence:
+    section_header: "INDEPENDENCE TESTS"
+
+    chi_square:
+      label: "Chi-square test"
+      description: "Tests association between categorical variables"
+
+    fishers_exact:
+      label: "Fisher's exact test"
+      description: "More accurate for small samples"
+
+    cramers_v:
+      label: "Cramér's V"
+      description: "Summarized effect size for chi-square (0 to 1)"
+
+  multiple_testing:
+    section_header: "5. MULTIPLE TESTING CORRECTION"
+    label: "Benjamini-Hochberg False Discovery Rate (FDR)"
+    description: "Controls the expected proportion of false discoveries at level α when testing multiple hypotheses."
+    procedure: "This procedure generates q‑values (BH‑adjusted p‑values) and deems a result significant if q < α (= {alpha:.2f})."
+
+  assumptions: |
+    Assumptions include appropriate data quality, sampling, and independence where required.
+    Departures (e.g., confounding, dependence) can affect validity.
+
+# -----------------------------------------------------------------------------
+# MULTIPLE TESTING CORRECTION SECTION
+# -----------------------------------------------------------------------------
+multiple_testing_correction:
+  section_title: "MULTIPLE TESTING CORRECTION (Benjamini-Hochberg FDR)"
+
+  introduction: |
+    Applying FDR correction to control the expected proportion of false discoveries across multiple tests...
+
+    Raw p-values and BH-adjusted p-values (q-values) are reported. A test is significant if its q-value is less than {alpha:.2f}.
+    This ensures that significance claims remain valid even when testing multiple hypotheses.
+
+  table_headers:
+    test_name: "Test Name"
+    raw_p_value: "Raw p-value"
+    q_value: "q-value (FDR)"
+    significant: "Significant?"
+
+  markers:
+    significant: "✓ YES"
+    not_significant: "✗ NO"
+
+# -----------------------------------------------------------------------------
+# TEST RESULT INTERPRETATIONS
+# -----------------------------------------------------------------------------
+test_interpretations:
+  cost_distribution:
+    significant:
+      title: "✓ EXECUTIVE FINDING: STATISTICALLY SIGNIFICANT after FDR correction"
+      direction: "→ {target_location} transaction costs are {direction} than other branches."
+      difference: "→ Mean difference: {mean_difference} per transaction"
+
+    not_significant:
+      title: "✗ EXECUTIVE FINDING: NOT statistically significant after FDR correction"
+      message: |
+        → While there may be numerical differences in transaction costs, they do not
+          meet the threshold for statistical reliability after accounting for multiple comparisons.
+
+  rate_comparison:
+    significant:
+      title: "✓ EXECUTIVE FINDING: STATISTICALLY SIGNIFICANT after FDR correction"
+      interpretation: "→ Interpretation: {target_location} is {risk_ratio:.1f} times more likely"
+      context: "  to have {test_name}. This result is unlikely under the null hypothesis (post-FDR)."
+
+    not_significant:
+      title: "✗ EXECUTIVE FINDING: NOT statistically significant after FDR correction"
+      message: |
+        → While there may be a numerical difference, it does not meet the threshold
+          for statistical reliability after accounting for multiple comparisons.
+
+  cliffs_delta:
+    format: "({magnitude} effect, {target_location} costs are {direction})"
+
+  cohens_d:
+    format: "({magnitude} effect, {target_location} costs are {direction})"
+
+  p_value:
+    highly_significant: "highly significant (p < {policy.p_highly_significant})"
+    very_significant: "very significant (p = {clean_p_value:.3f})"
+    significant: "significant (p = {clean_p_value:.3f})"
+    not_significant: "not significant (p = {clean_p_value:.3f})"
+
+# -----------------------------------------------------------------------------
+# FINANCIAL IMPACT SECTION
+# -----------------------------------------------------------------------------
+financial_impact:
+  section_title: "FINANCIAL IMPACT ANALYSIS"
+
+  subsections:
+    total_spend: "Total Spend:"
+    per_transaction: "Per-Transaction Metrics:"
+    exposure: "POTENTIAL FINANCIAL EXPOSURE (Unverified Transactions):"
+
+  labels:
+    target_total: "{target_location}"
+    baseline_total: "Other Branches"
+    target_mean: "{target_location}"
+    baseline_mean: "Other Branches"
+    mean_difference: "Mean Difference"
+
+  exposure_items:
+    - "• Excess unverified transactions: {excess_count}"
+    - "• Average cost of unverified: {avg_cost}"
+    - "• Estimated exposure: {total_exposure}"
+    - "• {policy.confidence_pct} Confidence Interval: [{ci_low}, {ci_high}]"
+
+  exposure_note: "NOTE: This represents transactions that cannot be verified against vehicle records."
+
+# -----------------------------------------------------------------------------
+# EXECUTIVE SUMMARY SECTION
+# -----------------------------------------------------------------------------
+executive_summary:
+  section_title: "EXECUTIVE SUMMARY OF STATISTICAL FINDINGS"
+
+  introduction: |
+    All findings below have passed Benjamini-Hochberg (FDR) correction
+    and are considered statistically reliable.
+
+  no_findings:
+    title: "NO STATISTICALLY SIGNIFICANT DIFFERENCES DETECTED"
+    paragraphs:
+      - |
+        While numerical differences may exist between {target_location}
+        and other branches, none of these differences met the rigorous threshold
+        for statistical significance after accounting for multiple comparisons.
+      - |
+        This suggests that, for the key metrics analyzed, the performance of
+        {target_location} is statistically consistent with its peers.
+      - |
+        However, this does not rule out localized issues or patterns that may
+        warrant investigation. Review the detailed analyses below for specific
+        drivers, vehicles, or patterns that may require attention.
+
+  findings_present:
+    header: "{count} STATISTICALLY SIGNIFICANT FINDING(S) IDENTIFIED:"
+    finding_title: "FINDING #{index}: {test_name}"
+
+    rate_comparison:
+      main: "→ {target_location} has a statistically significant,"
+      detail: "  {risk_ratio:.2f}x {direction} rate of '{test_name}' events."
+      rates: "   Target: {target_rate} vs. Other Branches: {baseline_rate}"
+      odds_ratio: "   Odds Ratio: {odds_ratio:.2f}x (indicates strength of association)"
+
+    cost_comparison:
+      main: "→ {test_name} shows a statistically significant difference."
+      averages: "   Target avg: {target_avg} vs. Other branches avg: {baseline_avg}"
+      effect: "   Effect size (Cliff's Delta): {effect_size:.3f} ({direction} in target location)"
+
+    statistical_strength:
+      main: "→ Statistical strength: {p_value}, FDR-adjusted q-value: {q_value:.4f}"
+      interpretation: "   This result is highly unlikely to be due to random chance."
+
+    risk_difference:
+      format: "→ Absolute difference: {risk_diff} {direction} in event rate"
+
+  recommendation:
+    marker: "⚠ RECOMMENDATION:"
+    text: |
+      The significant findings above warrant further investigation.
+      Detailed analyses in subsequent sections may explain some statistical anomalies.
+
+# -----------------------------------------------------------------------------
+# DRIVER ANALYSIS SECTION
+# -----------------------------------------------------------------------------
+driver_analysis:
+  table_title: "Top High-Risk Drivers"
+
+  table_headers:
+    driver: "Driver"
+    risk_score: "Risk Score"
+    transactions: "Transactions"
+    no_eld_pct: "No ELD %"
+    non_diesel_pct: "Non-Diesel %"
+    after_hours_pct: "After Hours %"
+    avg_cost: "Avg Cost"
+
+  deep_dive:
+    title: "DEEP DIVE: DRIVER PROFILE - {driver_name}"
+
+    sections:
+      risk_score: "Overall Risk Score: {risk_score:.1f}/100 ({risk_category} Risk)"
+
+      transaction_summary: "Transaction Summary:"
+      transaction_items:
+        - "• Total Transactions: {transaction_count}"
+        - "• Total Cost: {total_cost}"
+        - "• Average Cost: {avg_cost}"
+        - "• Unique Vehicles Used: {unique_vehicles}"
+
+      risk_indicators: "Key Risk Indicators:"
+      risk_items:
+        - "• No ELD Match Rate: {no_eld_rate}"
+        - "• Non-Diesel/DEF Rate: {non_diesel_rate}"
+        - "• After Hours/Weekend Rate: {after_hours_rate}"
+
+      product_breakdown: "Product Purchase Breakdown (Top 5):"
+      product_format: "  • {product}: {count} ({percentage}) - {total_cost}"
+
+      multi_fillup: "Multiple Same-Day Fillups:"
+      multi_fillup_items:
+        - "• Days with >1 fillup: {multi_fillup_days}"
+        - "• Max fillups in one day: {max_fillups_one_day}"
+        - "• Avg cost on multi-fillup days: {avg_cost_multi_fillup_days}"
+
+# -----------------------------------------------------------------------------
+# VEHICLE ANALYSIS SECTION
+# -----------------------------------------------------------------------------
+vehicle_analysis:
+  table_title: "Top High-Risk Vehicles"
+
+  table_headers:
+    vehicle: "Vehicle (VIN)"
+    primary_driver: "Primary Driver"
+    risk_score: "Risk Score"
+    transactions: "Transactions"
+    no_eld_pct: "No ELD %"
+    avg_cost: "Avg Cost"
+
+# -----------------------------------------------------------------------------
+# MULTI-FILLUP ANALYSIS SECTION
+# -----------------------------------------------------------------------------
+multi_fillup_analysis:
+  section_title: "DEEP DIVE: MULTIPLE SAME-DAY FILLUP EVENTS"
+
+  significance_context:
+    significant:
+      marker: "✓"
+      title: "Statistical Significance: The multi-fillup test was SIGNIFICANT"
+      details: "({p_value}, q = {q_value:.4f})"
+      interpretation: "This indicates {target_location} has a statistically higher rate of multi-fillup days compared to other branches."
+
+    not_significant:
+      marker: "✗"
+      title: "Statistical Significance: The multi-fillup test was NOT significant"
+      details: "({p_value}, q = {q_value:.4f})"
+      interpretation: "However, examining specific patterns below may still reveal concerning behaviors."
+
+  summary_title: "SUMMARY STATISTICS:"
+  summary_items:
+    - "• Total multi-fillup events: {total_events}"
+    - "• Unique drivers involved: {total_drivers}"
+    - "• Average fillups per event: {avg_fillups}"
+    - "• Total cost across all events: {total_cost}"
+    - "• High-suspicion events (2+ red flags): {high_suspicion_count}"
+
+  events_table_title: "TOP {top_n} MOST SUSPICIOUS MULTI-FILLUP EVENTS:"
+
+  table_headers:
+    driver: "Driver"
+    date: "Date"
+    fills: "Fills"
+    sites: "Sites"
+    hours: "Hours"
+    avg_vol: "Avg Vol"
+    avg_cost: "Avg Cost"
+    red_flags: "Red Flags"
+
+  legend_title: "RED FLAG LEGEND:"
+
+# -----------------------------------------------------------------------------
+# GEOGRAPHIC ANALYSIS SECTION
+# -----------------------------------------------------------------------------
+geographic_analysis:
+  section_title: "GEOGRAPHIC ANALYSIS: STATION USAGE PATTERNS"
+
+  introduction: |
+    This analysis examines which fuel stations are most frequently used
+    and identifies potential geographic anomalies.
+
+  table_title: "TOP {top_n} MOST USED FUEL STATIONS ({target_location}):"
+
+  table_headers:
+    station_name: "Station Name"
+    transactions: "Trans"
+    pct_total: "% Total"
+    drivers: "Drivers"
+    non_diesel_pct: "Non-Diesel %"
+    no_eld_pct: "No ELD %"
+    avg_cost: "Avg Cost"
+
+  suspicious_stations:
+    title: "⚠ STATIONS WITH SUSPICIOUS PATTERNS:"
+    format: "  • {station_name}: {transaction_count} trans - {flags}"
+    flag_separator: " | "
+    flag_formats:
+      high_non_diesel: "Non-diesel: {rate}"
+      high_no_eld: "No ELD: {rate}"
+      low_avg_cost: "Low avg cost: {cost}"
+
+# -----------------------------------------------------------------------------
+# TEMPORAL ANALYSIS SECTION
+# -----------------------------------------------------------------------------
+temporal_analysis:
+  section_title: "ADVANCED TEMPORAL ANALYSIS — FRAUD EMERGENCE & PATTERN DETECTION"
+
+  introduction:
+    paragraphs:
+      - "This analysis identifies when suspicious patterns emerged in {target_location} and tracks"
+      - "their evolution over time. Unlike aggregate statistics, this examines individual drivers"
+      - "and vehicles month-by-month to detect behavior changes, sudden spikes, gradual escalation,"
+      - "and specific fraud signatures that may indicate misuse inception or systematic exploitation."
+      - ""
+      - "The temporal risk score (0-100) is calculated from EIGHT weighted components:"
+      - "  • Concerning trends (20 pts) - Monotonic increases in suspicious metrics"
+      - "  • Change points (25 pts) - Significant behavioral shifts"
+      - "  • Sudden spikes (25 pts) - Month-over-month jumps >{policy.spike_threshold_pct}%"
+      - "  • Gradual escalation (15 pts) - Consecutive months of increases"
+      - "  • Fraud patterns (30 pts) - Specific known fraud signatures [HIGHEST WEIGHT]"
+      - "  • Autocorrelation (15 pts) - Persistent/systematic bad behavior"
+      - "  • Anomalies (15 pts) - Outlier months from rolling baseline"
+      - "  • Current state (20 pts) - Risk factors in most recent month [CRITICAL]"
+
+  metric_display_names:
+    datetime_count: "Transaction Count"
+    transaction_volume: "Transaction Count"
+    no_eld_rate: "No ELD Rate"
+    non_diesel_rate: "Non-Diesel Rate"
+    after_hours_rate: "After-Hours Rate"
+    avg_transaction_cost: "Avg Transaction Cost"
+
+  metric_definitions:
+    section_title: "METRIC DEFINITIONS:"
+
+    metrics:
+      transaction_volume:
+        label: "Transaction Count"
+        definition: "Number of unique fuel purchases per month"
+        note: "(Counts unique timestamps - diesel+DEF on same receipt = 1 transaction)"
+
+      no_eld_rate:
+        label: "No ELD Rate"
+        definition: "Percentage of transactions WITHOUT matching vehicle telemetry"
+        risk: "Higher = worse (less verification available)"
+
+      non_diesel_rate:
+        label: "Non-Diesel Rate"
+        definition: "Percentage of purchases that are NOT diesel/DEF"
+        risk: "Higher = worse (unusual products for commercial fleet)"
+
+      after_hours_rate:
+        label: "After Hours Rate"
+        definition: "Percentage of transactions OUTSIDE business hours ({policy.business_hours_range})"
+        risk: "Higher = worse (unusual timing for business operations)"
+
+      avg_transaction_cost:
+        label: "Avg Transaction Cost"
+        definition: "Mean dollar amount per transaction each month"
+        risk: "Lower = suspicious (suggests passenger vehicle fills vs commercial)"
+
+    analysis_types:
+      title: "ANALYSIS METHODS:"
+
+      trend_detection:
+        label: "Trend Detection (Mann-Kendall)"
+        description: "Tests for monotonic increase/decrease over entire period"
+        note: "⚠ Assumes independent observations - autocorrelation may inflate significance"
+
+      change_points:
+        label: "Change Point Detection"
+        description: "Identifies specific months when behavior significantly shifted"
+        methods: "Uses both CUSUM (first change) and Bayesian (all changes)"
+
+      month_over_month:
+        label: "Month-over-Month Analysis"
+        description: "Compares consecutive months to detect sudden spikes and gradual escalation"
+        thresholds:
+          - "Sudden Spike: >{policy.spike_threshold_pct}% increase from prior month or >{policy.spike_percentile}th percentile vs baseline"
+          - "Gradual Escalation: {policy.consecutive_months}+ consecutive months of increases"
+          - "Volatility Score: Standard deviation of monthly percent changes"
+
+      rolling_windows:
+        label: "Rolling Window Anomalies (3-month)"
+        description: "Identifies months that deviate >2σ from recent baseline"
+        note: "Smooths noise while remaining responsive to changes"
+
+      autocorrelation:
+        label: "Autocorrelation Analysis"
+        description: "Detects if suspicious behavior is persistent vs. random"
+        interpretation: "High lag-1 correlation (>{policy.autocorrelation_threshold}) indicates systematic pattern"
+
+      fraud_patterns:
+        label: "Fraud Pattern Recognition"
+        description: "Matches against known fraud signatures"
+        patterns:
+          off_hours_concentration: "Excessive non-business hour activity (>{policy.off_hours_threshold_pct}% of transactions)"
+          spike_retreat: "Rapid escalation followed by sudden cessation (>{policy.spike_threshold_pct}% spike, then >{policy.retreat_drop_pct}% drop)"
+          gradual_escalation: "Sustained increase over extended period (second half >{policy.period_change_pct}% higher than first)"
+          operational_anomaly: "Behavior inconsistent with expected business patterns"
+
+    period_comparison:
+      title: "Period Comparison (First Half vs Second Half):"
+      items:
+        - "• INCREASED: Statistically significant rise (p < {policy.p_significant})"
+        - "• DECREASED: Statistically significant decline (p < {policy.p_significant})"
+        - "• NO CHANGE: No significant difference detected"
+        - "• Effect size (r): -1 to +1, larger absolute value = stronger change"
+
+  insufficient_data:
+    warning: "⚠ WARNING: Insufficient data for entity-level temporal analysis."
+    details: "Entities need at least {policy.min_transactions_temporal} transactions across {policy.min_months_temporal}+ months."
+    recommendation: "Consider lowering thresholds or extending analysis period for more coverage."
+
+  summary_statistics:
+    title: "TEMPORAL SUMMARY STATISTICS:"
+    items:
+      - "• Analysis Period: {date_min} to {date_max}"
+      - "• Entities analyzed (drivers + vehicles): {total_entities}"
+      - "• Critical Risk (score ≥ {policy.risk_critical}): {critical_count} ({critical_pct})"
+      - "• High Risk (score {policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct})"
+      - "• Entities with change points: {with_change_points} ({with_change_points_pct})"
+      - "• Entities with concerning trends: {with_trends} ({with_trends_pct})"
+      - "• Entities with fraud patterns: {with_fraud_patterns} ({with_fraud_patterns_pct})"
+      - "• Entities with current active risks: {with_current_risks} ({with_current_risks_pct})"
+
+  top_entities:
+    title: "TOP {top_n} HIGHEST RISK ENTITIES"
+    introduction: "These entities show the most concerning temporal patterns. Prioritize investigation"
+    priority_note: "of those with CURRENT RISKS (active in most recent month) over historical issues."
+
+    entity_header: "═══════════════════════════════════════════════════════════════════"
+    entity_title: "{entity_type}: {display_id}"
+    truck_entity_title: "{entity_type}: {display_id} ({truck_description})"
+    risk_line: "  Risk Score: {risk_score}/100 [{risk_category}]"
+    activity_line: "  Active: {months_active} months | Transactions: {total_transactions}"
+    flags_line: "  Analysis Flags: {flags}"
+
+    current_risks:
+      title: "  🚨 CURRENT RISK FACTORS (Most Recent Month):"
+      format: "    • {factor}"
+      none: "  ✓ No elevated risk factors in most recent month"
+
+    fraud_patterns:
+      title: "  ⚠ FRAUD PATTERN SIGNATURES DETECTED:"
+      patterns:
+        off_hours_concentration: "    • OFF-HOURS CONCENTRATION: Excessive non-business hour activity"
+        spike_retreat: "    • SPIKE-AND-RETREAT: Rapid escalation followed by sudden cessation"
+        gradual_escalation: "    • GRADUAL ESCALATION: Sustained increase over extended period"
+        operational_anomaly: "    • OPERATIONAL ANOMALY: Behavior inconsistent with business patterns"
+      none: "(No specific fraud patterns detected)"
+
+    month_over_month:
+      title: "  📊 MONTH-OVER-MONTH ANALYSIS:"
+
+      sudden_spikes:
+        label: "    Sudden Spikes Detected:"
+        format: "      • {metric}: Max {percentile:.1f}th percentile across {count} months ({months})"
+        none: "      (None)"
+
+      gradual_escalation:
+        label: "    Gradual Escalation:"
+        format: "      • {metric}: {consecutive} consecutive months of increases"
+        none: "      (None)"
+
+      volatility:
+        label: "    Volatility Score: {volatility_score}"
+        high_note: "      ⚠ High volatility indicates erratic behavior changes"
+
+    change_points:
+      title: "  📍 BEHAVIOR CHANGE POINTS:"
+      single_format: "    • {metric}: Changed around {month}"
+      multiple_intro: "    • {metric}: Multiple changes detected"
+      format: "  • {metric}: {date}"
+      multiple_format: "  • {metric}: Multiple changes ({dates})"
+      none: "  (No significant change points detected)"
+
+    autocorrelation:
+      title: "  🔄 PERSISTENT PATTERNS:"
+      explanation: "  High autocorrelation indicates behavior is consistently problematic (not random):"
+      format: "  • {metric}: Correlation = {correlation} (Persistently {level})"
+      high_note: "      ⚠ High autocorrelation indicates systematic/persistent behavior"
+      none: "  (No high-persistence patterns detected)"
+
+    rolling_anomalies:
+      title: "  🎯 ROLLING WINDOW ANOMALIES:"
+      format: "  • {metric}: Outliers in {months} (Max Z-score: {z_score})"
+      z_score: "      (Max z-score: {max_z_score})"
+      none: "  (No anomalous months detected)"
+
+    trends:
+      title: "  📈 BEHAVIORAL TRENDS:"
+      format: "    • {indicator}"
+      none: "  (No concerning long-term trends detected)"
+
+    period_comparison:
+      title: "  ⚖ PERIOD COMPARISON (First Half vs Second Half):"
+      format: "  • {metric}: {result}"
+      explanation: "  Comparing first half of period to second half:"
+
+    entity_summary:
+      title: "📋 SUMMARY:"
+      risk_format: "  Risk Level: {risk_category} (Score: {risk_score}/100)"
+      flags_format: "  Active Flags: {flags}"
+      recommendations:
+        critical: "Immediate investigation recommended - Critical risk level"
+        high: "Priority review recommended - High risk level"
+        moderate: "Routine monitoring recommended - Moderate risk level"
+        low: "Standard monitoring sufficient - Low risk level"
+
+  risk_distribution:
+    title: "TEMPORAL RISK DISTRIBUTION BY ENTITY TYPE"
+
+    overall:
+      title: "Overall Distribution:"
+      critical: "  Critical ({policy.risk_critical}-100): {critical_count} entities"
+      high: "  High ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_count} entities"
+      medium: "  Medium ({policy.risk_medium}-{policy.risk_high_minus_one}): {medium_count} entities"
+      low: "  Low (0-{policy.risk_medium_minus_one}): {low_count} entities"
+
+    drivers:
+      title: "Drivers (n={count}):"
+      items:
+        - "  Mean Risk Score: {mean_risk:.1f}"
+        - "  Median Risk Score: {median_risk:.1f}"
+        - "  Critical Risk (≥{policy.risk_critical}): {critical_count} ({critical_pct:.1f}%)"
+        - "  High Risk ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
+      none: "  No driver entities met minimum threshold for analysis"
+
+    vehicles:
+      title: "Vehicles (n={count}):"
+      items:
+        - "  Mean Risk Score: {mean_risk:.1f}"
+        - "  Median Risk Score: {median_risk:.1f}"
+        - "  Critical Risk (≥{policy.risk_critical}): {critical_count} ({critical_pct:.1f}%)"
+        - "  High Risk ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
+      none: "  No vehicle entities met minimum threshold for analysis"
+
+  fraud_timeline:
+    title: "FRAUD EMERGENCE TIMELINE"
+    subtitle: "When did suspicious behavior changes occur?"
+
+    frequency_intro:
+      title: "Change Point Frequency by Month:"
+      subtitle: "(Number of entities showing significant behavior changes)"
+
+    month_format: "  {month}: {count} {label}"
+
+    peak_insight:
+      marker: "⚠ EXECUTIVE INSIGHT:"
+
+      peak_single:
+        paragraphs:
+          - "  Peak change activity occurred in {peak_month} ({peak_count} entities)."
+          - "  This suggests potential systemic issues or coordinated fraud may have"
+          - "  begun or intensified around this time. Recommend investigating:"
+          - "    • New employees or contractors hired near this date"
+          - "    • Policy/supervision changes implemented around this period"
+          - "    • Common attributes among entities with changes in this month"
+
+      peak_multiple:
+        paragraphs:
+          - "  Multiple peaks detected: {peak_months}"
+          - "  This pattern may indicate:"
+          - "    • Multiple waves of fraud activity"
+          - "    • Different groups testing/exploiting at different times"
+          - "    • Response to detection attempts (stopping then resuming)"
+
+    patterns:
+      title: "  Temporal Pattern Insights:"
+      early_changes: "    • Early changes ({early_pct}% in first third): Possible long-term misuse"
+      late_changes: "    • Late changes ({late_pct}% in last third): Recent/emerging issues"
+      clustered: "    • Clustered changes: Suggests coordinated or learned behavior"
+      distributed: "    • Distributed changes: Suggests opportunistic individual actions"
+
+    no_changes:
+      paragraphs:
+        - "✓ No significant change points detected across entities."
+        - "  Behavior patterns appear relatively stable over the analysis period."
+        - "  (This does not rule out consistent misuse - only changing misuse patterns)"
+
+  fraud_pattern_summary:
+    title: "FRAUD PATTERN DETECTION SUMMARY"
+    intro: "Entities matching specific fraud signatures:"
+
+    off_hours_concentration:
+      title: "  Off-Hours Concentration Pattern:"
+      description: "    Excessive non-business hour activity (>{policy.off_hours_threshold_pct}% of transactions)"
+      count: "    Detected in: {count} entities"
+      concern: "    Concern: Personal use or unauthorized activity during weekends/evenings"
+
+    spike_retreat:
+      title: "  Spike-and-Retreat Pattern:"
+      description: "    Rapid escalation followed by sudden cessation (>{policy.spike_threshold_pct}% spike, then >{policy.retreat_drop_pct}% drop)"
+      count: "    Detected in: {count} entities"
+      concern: "    Concern: Testing detection thresholds, then backing off to avoid scrutiny"
+
+    gradual_escalation:
+      title: "  Gradual Escalation Pattern:"
+      description: "    Sustained increase over extended period (second half >{policy.period_change_pct}% higher than first)"
+      count: "    Detected in: {count} entities"
+      concern: "    Concern: Incremental misuse increase to avoid triggering sudden anomaly alerts"
+
+    operational_anomaly:
+      title: "  Operational Anomaly Pattern:"
+      description: "    Behavior inconsistent with normal business operational patterns"
+      count: "    Detected in: {count} entities"
+      concern: "    Concern: Activity inconsistent with expected seasonal/operational variations"
+
+    none_detected:
+      message: "  ✓ No specific fraud patterns detected in analyzed entities."
+
+  comparative_analysis:
+    title: "COMPARATIVE TEMPORAL ANALYSIS"
+    introduction: "Comparing temporal risk patterns: {target_location} vs Other Branches"
+
+    comparison_title: "Temporal Risk Score Comparison:"
+    target_line: "  {target_location}:"
+    target_stats: "    Mean = {target_mean:.2f}, Median = {target_median:.2f}"
+    others_line: "  Other Branches:"
+    others_stats: "    Mean = {others_mean:.2f}, Median = {others_median:.2f}"
+
+    test_line: "  Statistical Test: Mann-Whitney U, p = {p_value:.4f}"
+    iqr_format: "  25th-75th percentile: {p25} - {p75}"
+    sample_size_format: "  Sample size: {n} entities"
+    effect_size_line: "  Effect Size (Cliff's Delta): δ = {delta} ({interpretation})"
+
+    interpretations:
+      significant_higher:
+        paragraphs:
+          - ""
+          - "  ⚠ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {policy.p_significant})"
+          - "  {target_location} demonstrates higher temporal risk scores than other branches."
+          - "  This pattern indicates more frequent or severe behavior changes at this location."
+          - ""
+          - "  Implications for Consideration:"
+          - "    • Enhanced scrutiny of {target_location} entities may be warranted"
+          - "    • Differences in management practices or controls may exist"
+          - "    • Local operational factors may be contributing to increased risk"
+          - "    • Further investigation into branch-specific patterns is advisable"
+
+      significant_lower:
+        paragraphs:
+          - ""
+          - "  ✓ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {policy.p_significant})"
+          - "  {target_location} demonstrates lower temporal risk scores than other branches."
+          - "  This suggests more stable behavioral patterns at this location."
+          - "  While overall risk is lower, individual high-risk entities still warrant attention."
+
+      not_significant:
+        paragraphs:
+          - ""
+          - "  NO STATISTICALLY SIGNIFICANT DIFFERENCE (p ≥ {policy.p_significant})"
+          - "  {target_location} temporal risk is statistically comparable to other branches."
+          - "  Investigation focus should be directed toward individual high-risk entities"
+          - "  rather than branch-wide systemic issues."
+
+    effect_size_guide:
+      title: "  Effect Size Analysis (Cliff's Delta):"
+      negligible: "Negligible (|δ| < {policy.cliffs_delta_negligible}) - Minimal practical difference between locations"
+      small: "Small (|δ| < {policy.cliffs_delta_small}) - Detectable but modest difference"
+      medium: "Medium (|δ| < {policy.cliffs_delta_medium}) - Moderate practical difference"
+      large: "Large (|δ| ≥ {policy.cliffs_delta_medium}) - Substantial practical difference"
+      probability_explanation:
+        - "    Interpretation: If you randomly select one entity from {target_location}"
+        - "    and one from other branches, there's a {probability} chance the"
+        - "    {comparison_entity} entity has a higher risk score."
+      identical: "    Interpretation: The distributions are essentially identical."
+
+      interpretation_note: |
+
+        Note: Statistical significance (p-value) indicates whether a difference exists.
+        Effect size (Cliff's Delta) indicates whether that difference is practically meaningful.
+        Both should be considered when evaluating findings.
+
+  interpretation_guide:
+    title: "INTERPRETATION GUIDE"
+
+    high_confidence:
+      title: "Highest Confidence Fraud Indicators (Investigate First):"
+      items:
+        - "  ✓ CURRENT RISKS present (active in most recent month)"
+        - "  ✓ Multiple fraud patterns detected (2+ signatures)"
+        - "  ✓ Both trends AND change points detected (converging evidence)"
+        - "  ✓ High autocorrelation (persistent/systematic behavior)"
+        - "  ✓ Risk score ≥{policy.risk_critical} (Critical category)"
+
+    medium_confidence:
+      title: "Medium Confidence (Requires Additional Context):"
+      items:
+        - "  • Single fraud pattern detected"
+        - "  • Change points without trends (could be legitimate business change)"
+        - "  • Trends without change points (gradual evolution)"
+        - "  • Risk score {policy.risk_high}-{policy.risk_critical_minus_one} (High category)"
+        - "  • Historical issues without current risks (may be resolved)"
+
+    lower_priority:
+      title: "Lower Priority (Monitor but Don't Rush):"
+      items:
+        - "  • Risk score {policy.risk_medium}-{policy.risk_high_minus_one} (Medium category)"
+        - "  • No fraud patterns, only statistical anomalies"
+        - "  • Short analysis period (<{policy.min_months_temporal} months)"
+        - "  • Very few transactions (<{policy.min_transactions_risk} total)"
+
+  caveats:
+    title: "ANALYSIS CAVEATS & LIMITATIONS"
+    items:
+      - "• Small sample sizes (few months/transactions) reduce statistical power"
+      - "• Autocorrelation violates independence assumptions in some tests"
+      - "• Legitimate business changes can trigger false positives"
+      - "• Absence of patterns doesn't prove absence of fraud (only changing fraud)"
+      - "• Short analysis periods may miss longer-term patterns"
+      - "• Some fraud patterns may be location/industry specific"
+
+    recommendation: "Use temporal analysis as ONE piece of evidence alongside aggregate statistics,"
+    continuation: "network analysis, and investigator judgment. Converging evidence is strongest."
+
+# -----------------------------------------------------------------------------
+# REPORT FOOTER
+# -----------------------------------------------------------------------------
+report_footer:
+  section_title: "DATA COVERAGE & STATISTICAL RIGOR"
+
+  data_coverage:
+    title: "📊 DATA COVERAGE:"
+    items:
+      - "• Total transactions in full dataset: {total_records}"
+      - "• Transactions in main analysis period: {analysis_records}"
+      - "• {target_location}: {target_records} transactions ({target_pct} of analysis period)"
+      - "• Other Branches: {other_records} transactions ({other_pct} of analysis period)"
+      - "• Overall ELD Match Rate: {eld_match_rate}"
+
+  statistical_rigor:
+    title: "📈 STATISTICAL RIGOR:"
+    items:
+      - "• Statistical tests performed: {total_tests}"
+      - "• Tests significant after FDR correction: {significant_count} ({significant_pct})"
+      - "• Confidence Level: {confidence_level}"
+      - "• False Discovery Rate (FDR) Control Level (α): {alpha:.2f}"
+      - "• Multiple testing correction: Benjamini-Hochberg procedure"
+
+  test_summary:
+    title: "📋 TEST SUMMARY:"
+    headers:
+      test_name: "Test Name"
+      raw_p_value: "Raw p-value"
+      q_value: "FDR q-value"
+      significant: "Significant"
+
+  report_metadata:
+    title: "📝 REPORT METADATA:"
+    items:
+      - "• Report Generated: {report_date}"
+      - "• Analysis Period: {analysis_period}"
+      - "• Target Location: {target_location} (ID: {target_location_number})"
+      - "• Report Version: {system_name} {version}"
+
+  disclaimer:
+    title: "⚠ IMPORTANT DISCLAIMER:"
+    paragraphs:
+      - "  This report employs rigorous statistical methods to identify anomalies and patterns."
+      - "  However, statistical significance does not necessarily imply fraud or wrongdoing."
+      - "  All findings should be investigated with appropriate context and in consultation"
+      - "  with relevant stakeholders before drawing final conclusions or taking action."
+      - "  This analysis is intended to guide investigation, not serve as definitive proof."
+
+  closing:
+    main: "END OF FORENSIC ANALYSIS REPORT"
+    subtitle: "Generated by {system_name}: {system_full_name}"
+
+# =============================================================================
+# END OF LOCALIZATION FILE
+# =============================================================================

@@ -1,0 +1,317 @@
+# =============================================================================
+# ARGUS FUEL CARD FORENSICS - RUNTIME CONFIGURATION
+# =============================================================================
+# Analytics & Risk Governance Utility Suite (ARGUS)
+#
+# PURPOSE: Settings that change per run, dataset, analyst, or environment.
+#          This is the primary file you'll edit for each analysis.
+#
+# RELATED FILES:
+#   - policy.yaml:         Organizational thresholds and business rules
+#   - locales/english.yaml: Text, labels, and formatting for reports
+#
+# =============================================================================
+
+
+# =============================================================================
+# DATA SOURCE CONFIGURATION
+# =============================================================================
+# Paths to your input data files. Supports CSV, Parquet, or database queries.
+# All paths are relative to the working directory unless absolute.
+# =============================================================================
+
+data_sources:
+  # Primary fuel transaction data (required)
+  # Expected columns depend on column_mapping below
+  fuel_transactions: "./data/fuel_transactions.parquet"
+
+  # ELD/Telemetry data for verification (required for ELD matching)
+  # Set to null if ELD data is pre-merged with fuel transactions
+  eld_telemetry: "./data/eld_telemetry.parquet"
+
+  # Optional: Pre-merged dataset (skip internal merge if provided)
+  # Set to null to have ARGUS merge fuel + ELD data automatically
+  merged_dataset: null
+
+
+# =============================================================================
+# COLUMN MAPPING
+# =============================================================================
+# Map YOUR column names to ARGUS's expected fields.
+#
+# Format:
+#   argus_field: "your_column_name"
+#
+# IMPORTANT: Column names are case-sensitive. Verify exact spelling from your
+#            data source. Set optional fields to null if unavailable.
+# =============================================================================
+
+column_mapping:
+  # ---------------------------------------------------------------------------
+  # Core Transaction Fields (REQUIRED)
+  # ---------------------------------------------------------------------------
+  # These fields are essential for basic analysis. Missing any of these will
+  # cause the analysis to fail.
+
+  vehicle_id: "vin"
+  # Vehicle identifier - typically VIN (Vehicle Identification Number)
+  # Used to: Link transactions to specific vehicles, detect vehicle-level patterns
+
+  transaction_timestamp: "datetime"
+  # Transaction date and time - should be timezone-aware if possible
+  # Format: ISO 8601 preferred (e.g., "2024-12-15T14:30:00-06:00")
+  # Used to: Temporal analysis, after-hours detection, multi-fillup detection
+
+  driver_name: "driver"
+  # Driver's full name as recorded by fuel card system
+  # Used to: Driver-level risk scoring, pattern detection, reporting
+
+  merchant_name: "station_name"
+  # Fuel station or merchant name
+  # Used to: Geographic analysis, station pattern detection
+
+  merchant_address: "station address"
+  # Full street address of fuel station
+  # Used to: Geographic clustering, route analysis
+
+  assigned_location: "branch"
+  # Vehicle's assigned branch/location/depot name
+  # Used to: Target vs baseline comparison, branch-level analysis
+
+  transaction_amount: "cost"
+  # Total transaction cost in dollars (numeric, not formatted)
+  # Used to: Financial analysis, cost anomaly detection
+
+  fuel_volume_gallons: "volume"
+  # Fuel volume dispensed in gallons (numeric)
+  # Used to: Volume anomaly detection, efficiency calculations
+
+  product_category: "fuel_type"
+  # Product type purchased (e.g., "Diesel", "DEF", "Unleaded")
+  # Used to: Non-diesel detection (fraud indicator for diesel fleets)
+
+  odometer_miles: "odometer"
+  # Vehicle odometer reading at time of transaction (miles)
+  # Used to: Distance validation, efficiency calculations
+
+  # ---------------------------------------------------------------------------
+  # Entity Identifiers (REQUIRED)
+  # ---------------------------------------------------------------------------
+  # Integer IDs for efficient joins and grouping. These should be unique
+  # numeric identifiers for vehicles, drivers, and locations.
+
+  vehicle_index: "vinindex"
+  # Integer vehicle identifier for internal processing
+
+  driver_index: "driverindex"
+  # Integer driver identifier for internal processing
+
+  location_index: "locationindex"
+  # Integer location identifier for internal processing
+
+  vehicle_description: "truck_description"
+  # Human-readable vehicle description (e.g., "2022 Freightliner Cascadia")
+  # Used to: Report display, vehicle identification
+
+  # ---------------------------------------------------------------------------
+  # Supplementary Fields (OPTIONAL)
+  # ---------------------------------------------------------------------------
+  # Set to null if not available in your data. Analysis will proceed without
+  # these fields but some features may be limited.
+
+  driver_pin: "pin"
+  # Driver PIN used at fuel terminal (if captured)
+  # Used to: PIN sharing detection, authentication analysis
+
+  geographic_region: "region"
+  # Geographic region code (e.g., "MIDWEST", "NORTHEAST", "Region 3")
+  # Used to: Regional filtering, geographic segmentation
+
+  # ---------------------------------------------------------------------------
+  # Telemetry/ELD Fields (REQUIRED for ELD matching)
+  # ---------------------------------------------------------------------------
+  # These fields come from your ELD/telematics system.
+
+  distance_miles: "distance"
+  # Distance traveled during period (miles)
+  # Used to: Transaction verification, route analysis
+
+  idle_duration_minutes: "idle_time"
+  # Engine idle time during period (minutes)
+  # Used to: Operational pattern analysis
+
+  driving_duration_minutes: "driving_time"
+  # Active driving time during period (minutes)
+  # Used to: Transaction verification, timing analysis
+
+  engine_runtime_minutes: "running_time"
+  # Total engine runtime during period (minutes)
+  # Used to: Fuel consumption verification
+
+
+# =============================================================================
+# ANALYSIS TARGET
+# =============================================================================
+# Define which location/branch to analyze and compare against all others.
+#
+# The target location is compared against the "baseline" (all other locations
+# combined) to identify statistically significant deviations.
+# =============================================================================
+
+analysis:
+  target_location_number: 14
+  # Numeric ID of the branch/location to analyze
+  # This should match values in your location_index column
+  # All other locations become the baseline for comparison
+
+  target_location_name: "Philadelphia Branch"
+  # Human-readable name for reports and visualizations
+  # Does not need to match data exactly - used for display only
+
+
+# =============================================================================
+# OUTPUT SETTINGS
+# =============================================================================
+# Control what gets generated and where outputs are saved.
+# =============================================================================
+
+output:
+  output_directory: "./output"
+  # Base directory for all output files (reports, visualizations, logs)
+  # Created automatically if it doesn't exist
+  # Subdirectories may be created for different output types
+
+  output_width: 100
+  # Character width for text report formatting
+  # Affects separator lines, table alignment, and text wrapping
+  # Recommended: 80-120 depending on your display
+
+  # ---------------------------------------------------------------------------
+  # Report Generation
+  # ---------------------------------------------------------------------------
+
+  display_report: true
+  # Print the full text report to console/stdout
+  # Useful for interactive analysis; disable for batch processing
+
+  save_report: true
+  # Save the text report to a file in output_directory
+  # Filename format: {target_location}_{date}_forensic_report.txt
+
+  # ---------------------------------------------------------------------------
+  # Visualizations
+  # ---------------------------------------------------------------------------
+
+  generate_visualizations: true
+  # Create charts, graphs, and visual dashboards
+  # Requires matplotlib and seaborn
+
+  save_visualizations: true
+  # Save visualization files to output_directory
+  # Format: PNG files at 150 DPI (configurable in code)
+
+  # ---------------------------------------------------------------------------
+  # Report Content Settings
+  # ---------------------------------------------------------------------------
+
+  top_n_entities: 10
+  # Number of top drivers/vehicles to display in summary tables
+  # Higher values provide more detail but longer reports
+  # Recommended: 10-20 for executive reports, 50+ for detailed investigation
+
+  auto_analyze_top_drivers: 3
+  # Automatically generate deep-dive profiles for top N risky drivers
+  # Set to 0 to disable automatic deep-dives
+  # Deep-dives include transaction details, patterns, and recommendations
+
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+# Control log output for debugging, audit trails, and troubleshooting.
+#
+# Log Levels (from most to least verbose):
+#   DEBUG (10)  - Detailed diagnostic information
+#   INFO (20)   - General operational messages
+#   WARNING (30) - Potential issues that don't stop execution
+#   ERROR (40)  - Errors that may affect results
+#   CRITICAL (50) - Severe errors that stop execution
+# =============================================================================
+
+logging:
+  file_path: "./output/forensics_analysis"
+  # Base path for log file (extension .log added automatically)
+  # Set to null to disable file logging entirely
+  # Log files are appended, not overwritten (preserves audit trail)
+
+  console_level: "INFO"
+  # Minimum level for console output
+  # Recommended: INFO for normal use, DEBUG for troubleshooting
+
+  file_level: "DEBUG"
+  # Minimum level for file output
+  # Recommended: DEBUG for comprehensive audit trail
+
+  # Log format is controlled in code but follows standard Python logging:
+  # {timestamp} | {level} | {module} | {message}
+
+
+# =============================================================================
+# PERFORMANCE TUNING
+# =============================================================================
+# Settings that affect analysis speed vs. precision tradeoffs.
+# Adjust based on your data size and time constraints.
+# =============================================================================
+
+performance:
+  n_bootstrap: 10000
+  # Number of bootstrap iterations for confidence interval estimation
+  # Higher = more precise estimates but slower execution
+  #
+  # Recommendations by use case:
+  #   - Quick screening:      1,000 (fast, ~±2% CI precision)
+  #   - Standard analysis:   10,000 (balanced, ~±0.6% CI precision)
+  #   - Publication quality: 50,000 (slow, ~±0.3% CI precision)
+  #
+  # Time scaling is approximately linear (10x iterations = 10x time)
+
+
+# =============================================================================
+# LOCALIZATION & POLICY OVERRIDES
+# =============================================================================
+# Configure language/formatting (locale) and optional organizational policy.
+#
+# PATH RESOLUTION RULE:
+# - If a path is relative (e.g., "policy.yaml" or "config_files/policy.yaml"),
+#   ARGUS resolves it relative to the directory where the command is executed
+#   (the current working directory).
+# - Absolute paths (e.g., "/opt/argus/policy.yaml" or "D:\\argus\\policy.yaml")
+#   are used as-is.
+#
+# BUILT-IN DEFAULTS:
+# - If a value is set to null, ARGUS uses the built-in defaults packaged
+#   with the application.
+#
+# Examples (assuming ARGUS is run from "/home/user/my-argus-run"):
+#   "policy.yaml"              -> /home/user/my-argus-run/policy.yaml
+#   "config/policy.yaml"       -> /home/user/my-argus-run/config/policy.yaml
+#   "locales/custom_en.yaml"   -> /home/user/my-argus-run/locales/custom_en.yaml
+# =============================================================================
+
+localization:
+  # ---------------------------------------------------------------------------
+  # Locale file (language, wording, number/date formatting)
+  # ---------------------------------------------------------------------------
+  # Controls *how results are presented*, not how they are analyzed.
+  #
+  # Set to null to use the built-in locale (e.g., english.yaml).
+  locale_file: null
+
+  # ---------------------------------------------------------------------------
+  # Policy file (organizational thresholds and analysis rules)
+  # ---------------------------------------------------------------------------
+  # Controls *analysis policy* such as p-value thresholds, effect size cutoffs,
+  # risk score boundaries, and other domain-specific numeric rules.
+  #
+  # Set to null to use the built-in policy defaults.
+  policy_file: null
