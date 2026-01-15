@@ -11,12 +11,12 @@ the policy configuration, not in locale settings.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['RiskCategories', 'RiskCategoryItem']
 
 
-class RiskCategoryItem(BaseConfigModel):
+class RiskCategoryItem(FrozenModel):
     """
     Display text for one risk category level.
 
@@ -32,7 +32,7 @@ class RiskCategoryItem(BaseConfigModel):
     action: str = Field(description='Recommended action/response for this risk level')
 
 
-class RiskCategories(BaseConfigModel):
+class RiskCategories(FrozenModel):
     """
     Complete set of risk category display labels.
 

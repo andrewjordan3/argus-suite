@@ -3,16 +3,21 @@
 This module defines configuration models for statistical settings used in ARGUS. It includes
 settings for p-value thresholds and overall statistical analysis parameters.
 """
+import logging
+from typing import Any, Literal, Self
 
-from typing import Literal, Self
+from pydantic import Field, field_validator, model_validator
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'FdrMethodType',
     'PValueThresholdsConfig',
     'StatisticsConfig',
 ]
+
+# Module logger
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Define the allowed FDR methods. Will eventually add "benjamini_yekutieli" and "bonferroni".
 FdrMethodType = Literal['benjamini-hochberg']
@@ -21,7 +26,7 @@ FdrMethodType = Literal['benjamini-hochberg']
 # =============================================================================
 # STATISTICS CONFIGURATION
 # =============================================================================
-class PValueThresholdsConfig(BaseModel):
+class PValueThresholdsConfig(FrozenModel):
     """
     Configuration for p-value interpretation thresholds.
 
@@ -43,8 +48,6 @@ class PValueThresholdsConfig(BaseModel):
         very_significant: More stringent threshold. Common default is 0.01.
         highly_significant: Most stringent threshold. Common default is 0.001.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     significant: float = Field(
         default=0.05,
@@ -85,7 +88,7 @@ class PValueThresholdsConfig(BaseModel):
         return self
 
 
-class StatisticsConfig(BaseModel):
+class StatisticsConfig(FrozenModel):
     """
     Configuration for statistical analysis parameters.
 
@@ -98,8 +101,6 @@ class StatisticsConfig(BaseModel):
             NOTE: benjamini-hochberg is the only currently supported method.
         p_value: Thresholds used to bucket p-values into significance categories.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     confidence_level: float = Field(
         default=0.95,
@@ -117,6 +118,43 @@ class StatisticsConfig(BaseModel):
         default_factory=PValueThresholdsConfig,
         description='P-value thresholds used for significance bucketing in reports.',
     )
+
+    @field_validator('fdr_method', mode='before')
+    @classmethod
+    def coerce_fdr_method_to_bh(cls, raw_value: Any) -> str:
+        """
+        Coerce unsupported FDR methods to 'benjamini-hochberg'.
+
+        Notes:
+            ARGUS currently implements only the Benjamini-Hochberg procedure.
+            If the user supplies any other value, we warn and fall back to BH.
+
+        Args:
+            raw_value: The raw input value from YAML or caller (pre-parsing).
+
+        Returns:
+            The supported FDR method string: 'benjamini-hochberg'.
+        """
+        supported_value: str = 'benjamini-hochberg'
+
+        if raw_value == supported_value:
+            return supported_value
+
+        # Be slightly forgiving about case / whitespace. If it normalizes to the
+        # supported value, accept silently (no warning).
+        if isinstance(raw_value, str):
+            normalized_value: str = raw_value.strip().lower()
+            if normalized_value == supported_value:
+                return supported_value
+
+        logger.warning(
+            'Unsupported fdr_method=%r provided. ARGUS currently implements only %r. '
+            'Falling back to %r.',
+            raw_value,
+            supported_value,
+            supported_value,
+        )
+        return supported_value
 
     def get_alpha(self) -> float:
         """

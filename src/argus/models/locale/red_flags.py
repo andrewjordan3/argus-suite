@@ -13,7 +13,7 @@ prioritize and investigate potential fraud cases.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'RedFlagItem',
@@ -22,7 +22,7 @@ __all__: list[str] = [
 ]
 
 
-class RedFlagItem(BaseConfigModel):
+class RedFlagItem(FrozenModel):
     """
     Definition of a single red flag indicator.
 
@@ -45,7 +45,7 @@ class RedFlagItem(BaseConfigModel):
     )
 
 
-class RedFlagsGroup(BaseConfigModel):
+class RedFlagsGroup(FrozenModel):
     """
     A category of related red flags with common characteristics.
 
@@ -68,7 +68,7 @@ class RedFlagsGroup(BaseConfigModel):
     )
 
 
-class RedFlags(BaseConfigModel):
+class RedFlags(FrozenModel):
     """
     Complete red flag system definition.
 

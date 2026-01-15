@@ -6,12 +6,14 @@ settings for minimum data quality and quantity needed for analyses.
 
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['DataRequirementsConfig']
 
 
-class DataRequirementsConfig(BaseModel):
+class DataRequirementsConfig(FrozenModel):
     """
     Configuration for data requirements in ARGUS policies.
 
@@ -25,8 +27,6 @@ class DataRequirementsConfig(BaseModel):
         min_months_temporal: Minimum months of activity required for temporal analysis.
         min_months_current_year: Minimum current-year months before splitting analysis periods.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     monthend_threshold: int = Field(
         default=5,

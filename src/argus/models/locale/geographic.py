@@ -11,7 +11,7 @@ suspicious transaction patterns that may indicate fraudulent activity.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'GeographicAnalysis',
@@ -20,7 +20,8 @@ __all__: list[str] = [
     'GeographicAnalysisTableHeaders',
 ]
 
-class GeographicAnalysisTableHeaders(BaseConfigModel):
+
+class GeographicAnalysisTableHeaders(FrozenModel):
     """
     Column headers for station usage table.
 
@@ -55,7 +56,7 @@ class GeographicAnalysisTableHeaders(BaseConfigModel):
     avg_cost: str = Field(description='Column header for average transaction cost')
 
 
-class GeographicAnalysisSuspiciousFlagFormats(BaseConfigModel):
+class GeographicAnalysisSuspiciousFlagFormats(FrozenModel):
     """
     Format strings for suspicious station characteristics.
 
@@ -78,7 +79,7 @@ class GeographicAnalysisSuspiciousFlagFormats(BaseConfigModel):
     )
 
 
-class GeographicAnalysisSuspiciousStations(BaseConfigModel):
+class GeographicAnalysisSuspiciousStations(FrozenModel):
     """
     Configuration for suspicious stations subsection.
 
@@ -101,7 +102,7 @@ class GeographicAnalysisSuspiciousStations(BaseConfigModel):
     flag_formats: GeographicAnalysisSuspiciousFlagFormats
 
 
-class GeographicAnalysis(BaseConfigModel):
+class GeographicAnalysis(FrozenModel):
     """
     Complete geographic analysis section configuration.
 

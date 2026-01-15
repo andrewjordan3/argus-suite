@@ -2,7 +2,9 @@
 """
 Configuration module for specifying analysis targets in the ARGUS system.
 """
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'AnalysisConfig',
@@ -11,7 +13,7 @@ __all__: list[str] = [
 # =============================================================================
 # ANALYSIS TARGET CONFIGURATION
 # =============================================================================
-class AnalysisConfig(BaseModel):
+class AnalysisConfig(FrozenModel):
     """
     Configuration for specifying the analysis target.
 
@@ -22,8 +24,6 @@ class AnalysisConfig(BaseModel):
         target_location_number: Integer identifier of the location to analyze.
         target_location_name: Human-readable name of the target location for reports.
     """
-
-    model_config = ConfigDict(extra='forbid')
 
     target_location_number: int = Field(
         ...,

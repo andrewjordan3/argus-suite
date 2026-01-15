@@ -2,11 +2,10 @@
 """Root configuration model for ARGUS."""
 
 from pathlib import Path
-from typing import Any, Self
 
-import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from argus.models.common import RootConfigModel
 from argus.models.config.analysis_target import AnalysisConfig
 from argus.models.config.column_mapping import ColumnMappingConfig
 from argus.models.config.data_sources import DataSourcesConfig
@@ -14,8 +13,10 @@ from argus.models.config.logging import LoggingConfig
 from argus.models.config.output import OutputConfig
 from argus.models.config.performance import PerformanceConfig
 
+__all__: list[str] = ['FuelCardForensicsUserConfig']
 
-class FuelCardForensicsUserConfig(BaseModel):
+
+class FuelCardForensicsUserConfig(RootConfigModel):
     """
     Root configuration for ARGUS Fuel Card Forensics.
 
@@ -35,8 +36,6 @@ class FuelCardForensicsUserConfig(BaseModel):
         >>> config.analysis.target_location_name
         'Philadelphia Branch'
     """
-
-    model_config = ConfigDict(extra='forbid')
 
     analysis: AnalysisConfig = Field(
         description='Target location and analysis scope settings.',
@@ -73,24 +72,3 @@ class FuelCardForensicsUserConfig(BaseModel):
         default=None,
         description='Path to policy file for organizational thresholds.',
     )
-
-    @classmethod
-    def from_yaml(cls, config_path: str | Path) -> Self:
-        """
-        Load configuration from a YAML file.
-
-        Args:
-            config_path: Path to YAML configuration file.
-
-        Returns:
-            Validated configuration instance.
-
-        Raises:
-            FileNotFoundError: If config file doesn't exist.
-            ValidationError: If config content is invalid.
-        """
-        config_path = Path(config_path)
-        with config_path.open('r', encoding='utf-8') as file_handle:
-            raw_config: dict[str, Any] = yaml.safe_load(file_handle)
-
-        return cls.model_validate(raw_config)

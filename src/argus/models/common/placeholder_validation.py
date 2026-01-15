@@ -42,7 +42,7 @@ Single format string::
     >>> from argus.models.common.placeholders import Placeholders as P
     >>> from argus.models.common.placeholder_validation import FormatStr
     >>>
-    >>> class DataQualityMessages(BaseConfigModel):
+    >>> class DataQualityMessages(FrozenModel):
     ...     missing_value_item: FormatStr[P.DataQualityMissingValueItem]
     ...     outlier_bounds: FormatStr[P.DataQualityOutlierBounds]
 
@@ -50,7 +50,7 @@ List of format strings::
 
     >>> from argus.models.common.placeholder_validation import FormatStrList
     >>>
-    >>> class DriverAnalysis(BaseConfigModel):
+    >>> class DriverAnalysis(FrozenModel):
     ...     transaction_items: FormatStrList[P.DriverTransactionItems]
     ...     risk_items: FormatStrList[P.DriverRiskItems]
 
@@ -563,19 +563,19 @@ class FormatStr:
 
             >>> from argus.models.common.placeholders import Placeholders as P
             >>>
-            >>> class RiskRatioLocale(BaseConfigModel):
+            >>> class RiskRatioLocale(FrozenModel):
             ...     description: FormatStr[P.RiskRatioDescription]
             ...     value: FormatStr[P.RiskRatioValue]
             ...     thresholds: FormatStr[P.RiskRatioThresholds]
 
         Using inline tuple (legacy support)::
 
-            >>> class SimpleLocale(BaseConfigModel):
+            >>> class SimpleLocale(FrozenModel):
             ...     greeting: FormatStr['name', 'title']
 
         Using single string::
 
-            >>> class MinimalLocale(BaseConfigModel):
+            >>> class MinimalLocale(FrozenModel):
             ...     count_message: FormatStr['count']
 
         Validation at instantiation::
@@ -681,7 +681,7 @@ class FormatStrList:
 
             >>> from argus.models.common.placeholders import Placeholders as P
             >>>
-            >>> class DriverAnalysis(BaseConfigModel):
+            >>> class DriverAnalysis(FrozenModel):
             ...     transaction_items: FormatStrList[P.DriverTransactionItems]
             ...     risk_items: FormatStrList[P.DriverRiskItems]
 

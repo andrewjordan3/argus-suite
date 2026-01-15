@@ -11,12 +11,12 @@ and do not contain business logic or thresholds.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['LocaleSettings']
 
 
-class LocaleSettings(BaseConfigModel):
+class LocaleSettings(FrozenModel):
     """
     Locale-specific formatting preferences for report display.
 

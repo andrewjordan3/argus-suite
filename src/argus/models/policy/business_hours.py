@@ -10,7 +10,9 @@ This can help detect personal use, unauthorized activity, or fraud.
 import logging
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['BusinessHoursConfig']
 
@@ -18,7 +20,7 @@ __all__: list[str] = ['BusinessHoursConfig']
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BusinessHoursConfig(BaseModel):
+class BusinessHoursConfig(FrozenModel):
     """
     Configuration for business hours definition.
 
@@ -45,8 +47,6 @@ class BusinessHoursConfig(BaseModel):
         end_hour: Hour when business day ends (0-23, 24-hour format).
         days_of_week: List of business days (0=Monday, 6=Sunday).
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     start_hour: int = Field(
         default=6,

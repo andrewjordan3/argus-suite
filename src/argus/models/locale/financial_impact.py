@@ -12,7 +12,7 @@ transactions.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'FinancialImpact',
@@ -20,7 +20,8 @@ __all__: list[str] = [
     'FinancialImpactSubsections',
 ]
 
-class FinancialImpactSubsections(BaseConfigModel):
+
+class FinancialImpactSubsections(FrozenModel):
     """
     Headers for financial impact subsections.
 
@@ -43,7 +44,7 @@ class FinancialImpactSubsections(BaseConfigModel):
     )
 
 
-class FinancialImpactLabels(BaseConfigModel):
+class FinancialImpactLabels(FrozenModel):
     """
     Labels for financial metric line items.
 
@@ -72,7 +73,7 @@ class FinancialImpactLabels(BaseConfigModel):
     )
 
 
-class FinancialImpact(BaseConfigModel):
+class FinancialImpact(FrozenModel):
     """
     Complete financial impact analysis section configuration.
 

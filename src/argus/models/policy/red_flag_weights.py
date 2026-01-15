@@ -8,12 +8,14 @@ passenger vehicle and card misuse indicators.
 
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['IndividualFlagWeightConfig', 'RedFlagWeightsConfig']
 
 
-class IndividualFlagWeightConfig(BaseModel):
+class IndividualFlagWeightConfig(FrozenModel):
     """
     Weights contributing to individual red flag indicators.
 
@@ -29,8 +31,6 @@ class IndividualFlagWeightConfig(BaseModel):
         no_eld_match: Weight for transactions without ELD verification.
         rapid_succession: Weight for transactions in rapid succession.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     # Passenger Vehicle Indicators
     low_cost: float = Field(
@@ -80,7 +80,7 @@ class IndividualFlagWeightConfig(BaseModel):
 # =============================================================================
 # RED FLAG WEIGHTS CONFIGURATION
 # =============================================================================
-class RedFlagWeightsConfig(BaseModel):
+class RedFlagWeightsConfig(FrozenModel):
     """
     Weights contributing to the composite red flag score.
 
@@ -97,8 +97,6 @@ class RedFlagWeightsConfig(BaseModel):
         card_misuse_multiplier: Weight for card misuse indicators.
         individual_weights: Weights for individual red flag indicators.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     passenger_vehicle_multiplier: float = Field(
         default=2.0,

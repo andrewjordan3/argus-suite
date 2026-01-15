@@ -11,12 +11,12 @@ report metadata is consistent and correctly formatted.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['Metadata']
 
 
-class Metadata(BaseConfigModel):
+class Metadata(FrozenModel):
     """
     Complete report metadata with flat structure.
 

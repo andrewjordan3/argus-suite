@@ -7,12 +7,8 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from argus.models.config.user_config_models import (
-    AnalysisConfig,
-    RateThresholds,
-    ThresholdsConfig,
-)
-from argus.models import TemporalRiskProfile
+from argus.models.analysis import TemporalRiskProfile
+from argus.models.context.context_model import AnalysisContext
 from argus.utils import (
     EntityAnalysisContext,
     EntityMetadata,
@@ -27,7 +23,6 @@ from argus.utils import (
     rolling_window_analysis,
     segment_comparison_test,
 )
-from argus.models.context.context_model import AnalysisContext
 
 # Set up a logger for this module
 logger: logging.Logger = logging.getLogger(__name__)

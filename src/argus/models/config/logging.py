@@ -6,7 +6,9 @@ Logging configuration module for the ARGUS system.
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['LoggingConfig']
 
@@ -37,7 +39,7 @@ LOG_LEVEL_NAME_TO_INT: dict[LogLevelName, int] = {
 # =============================================================================
 
 
-class LoggingConfig(BaseModel):
+class LoggingConfig(FrozenModel):
     """
     Configuration for application logging output.
 
@@ -61,8 +63,6 @@ class LoggingConfig(BaseModel):
         console_level: Minimum log level for console (stderr) output.
         file_level: Minimum log level for file output. Defaults to DEBUG if file_path is provided.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=False)
 
     file_path: Path | None = Field(
         default=None,
@@ -94,12 +94,49 @@ class LoggingConfig(BaseModel):
         if path_value is None:
             return None
 
-        path_string: str = str(path_value)
+        # Convert to Path immediately to leverage safe filesystem methods
+        path: Path = Path(path_value)
 
-        if not path_string.lower().endswith('.log'):
-            path_string = f'{path_string}.log'
+        # Tilde characters (~) must be expanded to the full user home
+        # directory to ensure the path is valid for filesystem operations
+        path = path.expanduser()
 
-        return Path(path_string)
+        # The .log extension is enforced for consistency.
+        # Logic appends the extension if missing, preserving existing
+        # extensions (e.g., 'data.txt' becomes 'data.txt.log')
+        if path.suffix.lower() != '.log':
+            path = path.with_name(f'{path.name}.log')
+
+        if not path.is_absolute():
+            # Convert relative paths to absolute paths based on
+            # the current working directory
+            path = Path.cwd() / path
+
+        # Resolution anchors the path to the filesystem immediately
+        # to prevent ambiguity if the working directory changes later
+        return path.resolve(strict=False)
+
+    @field_validator('console_level', 'file_level', mode='before')
+    @classmethod
+    def normalize_log_level_case(
+        cls,
+        level_value: str | int | None,
+    ) -> str | int | None:
+        """
+        Normalize string log levels to uppercase for case-insensitive config.
+
+        Allows users to specify 'debug', 'Debug', or 'DEBUG' in YAML and have
+        all variants work correctly.
+
+        Args:
+            level_value: Log level as string, integer, or None.
+
+        Returns:
+            Uppercase string if input was string, otherwise unchanged.
+        """
+        if isinstance(level_value, str):
+            return level_value.upper()
+        return level_value
 
     @field_validator('console_level', 'file_level', mode='after')
     @classmethod

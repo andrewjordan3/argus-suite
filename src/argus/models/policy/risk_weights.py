@@ -4,20 +4,20 @@ This module defines the RiskWeightsConfig model for driver risk score
 calculation in the Argus fuel card forensics analysis package.
 """
 
+import math
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['RiskWeightsConfig']
-
-# Small tolerance for comparing floating point numbers
-EPSILON: float = 1e-6
 
 
 # =============================================================================
 # RISK WEIGHTS CONFIGURATION
 # =============================================================================
-class RiskWeightsConfig(BaseModel):
+class RiskWeightsConfig(FrozenModel):
     """
     Weights contributing to the composite driver risk score.
 
@@ -31,8 +31,6 @@ class RiskWeightsConfig(BaseModel):
         after_hours: Weight for transactions outside business hours.
         high_cost: Weight for elevated transaction costs.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     no_eld_match: float = Field(
         default=0.30,
@@ -75,7 +73,7 @@ class RiskWeightsConfig(BaseModel):
         )
 
         # Use epsilon for floating point comparison
-        if abs(total_weight - 1.0) > EPSILON:
+        if not math.isclose(total_weight, 1.0, rel_tol=0.0, abs_tol=1e-12):
             raise ValueError(
                 f'Driver risk score weights must sum to 1.0. '
                 f'Current sum: {total_weight:.4f} '

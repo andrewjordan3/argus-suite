@@ -12,7 +12,7 @@ events, including statistical significance and summary statistics.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'MultiFillupAnalysis',
@@ -23,7 +23,7 @@ __all__: list[str] = [
 ]
 
 
-class MultiFillupAnalysisSignificant(BaseConfigModel):
+class MultiFillupAnalysisSignificant(FrozenModel):
     """
     Content for one significance outcome (significant or not significant).
 
@@ -49,7 +49,7 @@ class MultiFillupAnalysisSignificant(BaseConfigModel):
     )
 
 
-class MultiFillupAnalysisNotSignificant(BaseConfigModel):
+class MultiFillupAnalysisNotSignificant(FrozenModel):
     """
     Content for one significance outcome (significant or not significant).
 
@@ -75,7 +75,7 @@ class MultiFillupAnalysisNotSignificant(BaseConfigModel):
     )
 
 
-class MultiFillupAnalysisSignificanceContext(BaseConfigModel):
+class MultiFillupAnalysisSignificanceContext(FrozenModel):
     """
     Significance context for multi-fillup analysis.
 
@@ -91,7 +91,7 @@ class MultiFillupAnalysisSignificanceContext(BaseConfigModel):
     not_significant: MultiFillupAnalysisNotSignificant
 
 
-class MultiFillupAnalysisTableHeaders(BaseConfigModel):
+class MultiFillupAnalysisTableHeaders(FrozenModel):
     """
     Column headers for multi-fillup events table.
 
@@ -120,7 +120,7 @@ class MultiFillupAnalysisTableHeaders(BaseConfigModel):
     red_flags: str = Field(description='Column header for red flags detected')
 
 
-class MultiFillupAnalysis(BaseConfigModel):
+class MultiFillupAnalysis(FrozenModel):
     """
     Complete multi-fillup analysis section configuration.
 

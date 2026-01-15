@@ -1,55 +1,118 @@
 # argus/models/common/base.py
 """
-Shared Pydantic base models for ARGUS.
+Shared Pydantic Base Models for ARGUS.
 
-These models centralize Pydantic configuration so individual models stay
-clean and consistent.
+This module provides a two-tier base class hierarchy for ARGUS configuration
+and locale models:
 
-Notes:
-- `frozen=True` makes models effectively immutable (assignment prohibited).
-- `extra='forbid'` prevents unknown keys in configuration files.
+    FrozenModel (base)
+        │
+        │   - Immutable (frozen=True)
+        │   - Strict validation (extra='forbid')
+        │   - Compact __repr__ for debugging
+        │
+        └──▶ RootConfigModel (extends FrozenModel)
+                │
+                │   - YAML file loading (from_yaml, from_default, etc.)
+                │   - YAML serialization (to_yaml_string)
+                │   - Default resource path configuration
+                │
+                └──▶ Your 3 root config models
+
+Usage Pattern:
+    - Nested/child models: inherit from FrozenModel
+    - Root models (representing entire YAML files): inherit from RootConfigModel
+
+Example:
+    >>> # Nested model - just needs validation and immutability
+    >>> class ThresholdSettings(FrozenModel):
+    ...     zscore: float
+    ...     minimum_count: int
+    ...
+    >>> # Root model - represents an entire YAML file
+    >>> class PolicyConfig(RootConfigModel):
+    ...     _default_resource_path: ClassVar[tuple[str, ...]] = (
+    ...         'defaults', 'policy.yaml'
+    ...     )
+    ...     thresholds: ThresholdSettings  # nested model
+    ...     enabled: bool
+    ...
+    >>> # Load the root model (nested models are validated automatically)
+    >>> policy = PolicyConfig.from_yaml('~/.argus/policy.yaml')
 """
 
 import logging
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict
+from pydantic.fields import FieldInfo
+
+from argus.utils.yaml_loader import (
+    DEFAULT_RESOURCE_PACKAGE,
+    load_yaml_from_package_resource,
+    load_yaml_from_path,
+    parse_yaml_to_dict,
+)
 
 __all__: list[str] = [
-    'BaseConfigModel',
+    'FrozenModel',
+    'RootConfigModel',
 ]
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Maximum length for string field values in __repr__ output.
-# Prevents console spam from large locale strings.
-_REPR_MAX_STR_LENGTH: int = 50
+# Maximum string length shown in __repr__ output.
+# Prevents console spam from large locale strings during debugging.
+_REPR_MAX_STRING_LENGTH: int = 50
 
 
-class BaseConfigModel(BaseModel):
+# =============================================================================
+# Base Model: FrozenModel
+# =============================================================================
+# Use this for nested/child models that are part of a larger configuration.
+# Provides immutability, strict validation, and compact repr—nothing more.
+# =============================================================================
+
+
+class FrozenModel(BaseModel):
     """
-    Base class for configuration and locale models.
+    Base class for immutable, strictly-validated Pydantic models.
 
-    Provides common configuration and utility methods for all ARGUS
-    config/locale models. Designed for immutable value objects loaded
-    from YAML files.
+    Use this as the base class for nested configuration models—the building
+    blocks that compose larger root configurations. This class provides the
+    core guarantees all ARGUS config models need, without YAML loading logic
+    that only makes sense for root-level models.
 
-    Configuration:
-        - Disallows unknown fields (`extra='forbid'`) - catches YAML typos
-        - Prevents mutation after creation (`frozen=True`) - config is immutable
-        - Validates default values (`validate_default=True`) - catches bad defaults
+    Guarantees:
+        - Immutable: Instances cannot be modified after creation (frozen=True)
+        - Strict: Unknown fields raise ValidationError (extra='forbid')
+        - Validated: Default values are checked at class definition time
 
-    Class Methods:
-        from_yaml: Load model from a YAML file path
-        from_yaml_string: Load model from a YAML string (useful for testing)
+    When to Use:
+        - Nested models that are fields within larger models
+        - Any model that doesn't represent an entire YAML file
+        - Models that will be instantiated by Pydantic during parent validation
 
-    Methods:
-        to_yaml_string: Serialize model back to YAML (useful for debugging)
+    When to Use RootConfigModel Instead:
+        - Models representing entire YAML configuration files
+        - Models that need from_yaml(), from_default(), or to_yaml_string()
 
-    Raises:
-        pydantic.ValidationError: If input data does not conform to the schema.
+    Example:
+        >>> class DatabaseSettings(FrozenModel):
+        ...     host: str
+        ...     port: int = 5432
+        ...     max_connections: int = 10
+        ...
+        >>> class ServerSettings(FrozenModel):
+        ...     bind_address: str = '0.0.0.0'
+        ...     workers: int = 4
+        ...
+        >>> # These are used as fields in a root model:
+        >>> class AppConfig(RootConfigModel):
+        ...     database: DatabaseSettings
+        ...     server: ServerSettings
     """
 
     model_config = ConfigDict(
@@ -59,78 +122,319 @@ class BaseConfigModel(BaseModel):
     )
 
     @classmethod
-    def from_yaml(cls, file_path: str | Path) -> Self:
+    def get_field_definitions(cls) -> dict[str, FieldInfo]:
         """
-        Load and validate a model instance from a YAML file.
+        Access model field definitions via the class, not the instance.
 
-        Args:
-            file_path: Path to the YAML file. Can be string or Path object.
+        Pydantic V2 deprecated accessing `model_fields` on instances.
+        This classmethod provides a clean, future-proof interface that
+        works identically whether called on the class or an instance.
 
         Returns:
-            Validated model instance.
+            Dictionary mapping field names to their FieldInfo metadata.
+
+        Example:
+            >>> # Both of these work identically:
+            >>> MyConfig.get_field_definitions()
+            >>> my_config_instance.get_field_definitions()
+        """
+        return cls.model_fields
+
+    def __repr__(self) -> str:
+        """
+        Return a compact string representation for debugging.
+
+        Truncates long strings and summarizes nested models to prevent
+        console spam when inspecting large configuration objects.
+
+        Returns:
+            Compact representation suitable for logging and REPL use.
+
+        Example:
+            >>> repr(settings)
+            "DatabaseSettings(host='localhost', port=5432, max_connections=10)"
+        """
+        field_representations: list[str] = []
+
+        for field_name in self.__class__.model_fields:
+            field_value: Any = getattr(self, field_name)
+            compact_representation: str = _format_value_for_repr(field_value)
+            field_representations.append(f'{field_name}={compact_representation}')
+
+        return f'{self.__class__.__name__}({", ".join(field_representations)})'
+
+
+# =============================================================================
+# Root Model: RootConfigModel
+# =============================================================================
+# Use this for top-level models that represent entire YAML configuration files.
+# Adds YAML loading and serialization capabilities to FrozenModel.
+# =============================================================================
+
+
+class RootConfigModel(FrozenModel):
+    """
+    Base class for root-level configuration models representing YAML files.
+
+    Extends FrozenModel with YAML loading and serialization capabilities.
+    Use this as the base class for models that represent entire configuration
+    files, not for nested models within those files.
+
+    Class Attributes (Override in Subclasses):
+        _default_resource_package: Package containing bundled defaults.
+            Defaults to 'argus'. Rarely needs overriding.
+        _default_resource_path: Path tuple to the default YAML file within
+            the package. Set to None (default) if no bundled default exists.
+            MUST be set to enable from_default().
+
+    Loading Methods:
+        from_yaml: Load from filesystem path (user-provided config)
+        from_yaml_string: Load from string (useful for testing)
+        from_package_resource: Load from arbitrary package resource
+        from_default: Load bundled default (requires _default_resource_path)
+
+    Serialization:
+        to_yaml_string: Convert model to YAML (debugging, generating templates)
+
+    Inheritance:
+        RootConfigModel extends FrozenModel, so root models get all the same
+        guarantees (immutability, strict validation) plus YAML capabilities.
+
+    Example:
+        >>> class PolicyConfig(RootConfigModel):
+        ...     '''Root model for policy.yaml configuration file.'''
+        ...
+        ...     _default_resource_path: ClassVar[tuple[str, ...]] = (
+        ...         'defaults', 'policy.yaml'
+        ...     )
+        ...
+        ...     # Nested models (these inherit from FrozenModel)
+        ...     thresholds: ThresholdSettings
+        ...     analysis: AnalysisSettings
+        ...
+        ...     # Simple fields
+        ...     enabled: bool = True
+        ...
+        >>> # Three ways to load:
+        >>> config = PolicyConfig.from_yaml('~/.argus/policy.yaml')
+        >>> config = PolicyConfig.from_default()
+        >>> config = PolicyConfig.from_yaml_string('enabled: false\\n...')
+    """
+
+    # -------------------------------------------------------------------------
+    # Class-Level Default Resource Configuration
+    # -------------------------------------------------------------------------
+    # These ClassVar attributes configure bundled default loading.
+    # Subclasses override _default_resource_path to enable from_default().
+    # -------------------------------------------------------------------------
+
+    _default_resource_package: ClassVar[str] = DEFAULT_RESOURCE_PACKAGE
+    _default_resource_path: ClassVar[tuple[str, ...] | None] = None
+
+    # -------------------------------------------------------------------------
+    # Class Methods: YAML Loading
+    # -------------------------------------------------------------------------
+
+    @classmethod
+    def from_yaml(cls, file_path: str | Path) -> Self:
+        """
+        Load and validate a model instance from a filesystem YAML file.
+
+        Use this method for user-provided configuration files. For bundled
+        defaults, use from_default() instead.
+
+        Args:
+            file_path: Path to the YAML file. Accepts string or Path.
+                Tilde (~) is expanded automatically.
+
+        Returns:
+            Validated, immutable model instance.
 
         Raises:
             FileNotFoundError: If the file does not exist.
-            yaml.YAMLError: If the file contains invalid YAML syntax.
-            pydantic.ValidationError: If the data fails model validation.
+            PermissionError: If the file cannot be read.
+            yaml.YAMLError: If YAML syntax is invalid.
+            ValueError: If the YAML file is empty or an empty dictionary.
+            TypeError: If YAML root is not a dictionary.
+            pydantic.ValidationError: If data fails schema validation.
 
         Example:
-            >>> english = MessagesLocale.from_yaml('locales/en_US/messages.yaml')
+            >>> policy = PolicyConfig.from_yaml('~/.argus/policy.yaml')
         """
-        file_path = Path(file_path)
+        logger.debug('Loading %s from filesystem', cls.__name__)
 
-        logger.debug('Loading %s from %s', cls.__name__, file_path)
+        parsed_data: dict[str, Any] = load_yaml_from_path(file_path)
+        validated_instance: Self = cls.model_validate(parsed_data)
 
-        yaml_content: str = file_path.read_text(encoding='utf-8')
-        parsed_data: dict[str, Any] = yaml.safe_load(yaml_content)
+        logger.info('Successfully loaded %s from filesystem', cls.__name__)
 
-        instance: Self = cls.model_validate(parsed_data)
-
-        logger.debug('Successfully loaded %s from %s', cls.__name__, file_path)
-
-        return instance
+        return validated_instance
 
     @classmethod
     def from_yaml_string(cls, yaml_content: str) -> Self:
         """
         Load and validate a model instance from a YAML string.
 
-        Useful for testing or when YAML content is embedded/generated.
+        Primarily useful for testing, where embedding YAML in test code
+        is more convenient than creating temporary files.
 
         Args:
-            yaml_content: YAML-formatted string.
+            yaml_content: YAML-formatted string. Leading/trailing whitespace
+                is acceptable (common with triple-quoted strings).
 
         Returns:
-            Validated model instance.
+            Validated, immutable model instance.
 
         Raises:
-            yaml.YAMLError: If the string contains invalid YAML syntax.
-            pydantic.ValidationError: If the data fails model validation.
+            yaml.YAMLError: If YAML syntax is invalid.
+            ValueError: If the YAML string is empty or an empty dictionary.
+            TypeError: If YAML root is not a dictionary.
+            pydantic.ValidationError: If data fails schema validation.
 
         Example:
-            >>> locale = MessagesLocale.from_yaml_string('''
-            ...     messages:
-            ...       greeting: "Hello {name}"
+            >>> config = PolicyConfig.from_yaml_string('''
+            ...     thresholds:
+            ...         zscore: 3.0
+            ...     enabled: true
             ... ''')
         """
-        parsed_data: dict[str, Any] = yaml.safe_load(yaml_content)
+        source_description: str = f'{cls.__name__} YAML string'
 
-        return cls.model_validate(parsed_data)
+        logger.debug('Loading %s from YAML string', cls.__name__)
+
+        parsed_data: dict[str, Any] = parse_yaml_to_dict(
+            yaml_source=yaml_content,
+            source_description=source_description,
+        )
+        validated_instance: Self = cls.model_validate(parsed_data)
+
+        logger.debug('Successfully loaded %s from YAML string', cls.__name__)
+
+        return validated_instance
+
+    @classmethod
+    def from_package_resource(
+        cls,
+        resource_path: tuple[str, ...],
+        package: str | None = None,
+    ) -> Self:
+        """
+        Load and validate a model from a package-bundled YAML resource.
+
+        This method accesses YAML files distributed as part of a Python
+        package. It's the foundation for from_default(), but can also be
+        used directly for non-default package resources.
+
+        Args:
+            resource_path: Tuple of path components within the package.
+                Example: ('locales', 'pt_BR', 'messages.yaml')
+            package: Package containing the resource. If None, uses the
+                class's _default_resource_package (defaults to 'argus').
+
+        Returns:
+            Validated, immutable model instance.
+
+        Raises:
+            FileNotFoundError: If the resource path doesn't exist.
+            yaml.YAMLError: If YAML syntax is invalid.
+            ValueError: If the YAML file is empty or an empty dictionary.
+            TypeError: If YAML root is not a dictionary.
+            pydantic.ValidationError: If data fails schema validation.
+
+        Example:
+            >>> locale = LocaleConfig.from_package_resource(
+            ...     resource_path=('locales', 'pt_BR', 'messages.yaml'),
+            ... )
+        """
+        effective_package: str = package or cls._default_resource_package
+
+        logger.debug(
+            "Loading %s from package resource in '%s'",
+            cls.__name__,
+            effective_package,
+        )
+
+        parsed_data: dict[str, Any] = load_yaml_from_package_resource(
+            resource_path=resource_path,
+            package=effective_package,
+        )
+        validated_instance: Self = cls.model_validate(parsed_data)
+
+        logger.info(
+            'Successfully loaded %s from package resource',
+            cls.__name__,
+        )
+
+        return validated_instance
+
+    @classmethod
+    def from_default(cls) -> Self:
+        """
+        Load the bundled default configuration for this model type.
+
+        Convenience method that loads from the path specified by the
+        class's _default_resource_path attribute. Subclasses MUST define
+        this attribute to use from_default().
+
+        Returns:
+            Validated, immutable model instance from bundled defaults.
+
+        Raises:
+            NotImplementedError: If subclass hasn't defined _default_resource_path.
+            FileNotFoundError: If the default resource doesn't exist (packaging bug).
+            yaml.YAMLError: If default YAML has syntax errors.
+            pydantic.ValidationError: If default data is invalid.
+
+        Example:
+            >>> # Subclass must define the default path:
+            >>> class PolicyConfig(RootConfigModel):
+            ...     _default_resource_path: ClassVar[tuple[str, ...]] = (
+            ...         'defaults', 'policy.yaml'
+            ...     )
+            ...
+            >>> default_policy = PolicyConfig.from_default()
+
+        Note:
+            NotImplementedError means this model has no bundled default.
+            Some models (e.g., user-specific configs) intentionally lack
+            defaults and must be provided explicitly.
+        """
+        if cls._default_resource_path is None:
+            error_message: str = (
+                f'{cls.__name__} does not define _default_resource_path. '
+                f'Either set this ClassVar to enable from_default(), or '
+                f'use from_yaml() with an explicit file path.'
+            )
+            logger.error(error_message)
+            raise NotImplementedError(error_message)
+
+        logger.debug('Loading default %s', cls.__name__)
+
+        return cls.from_package_resource(
+            resource_path=cls._default_resource_path,
+            package=cls._default_resource_package,
+        )
+
+    # -------------------------------------------------------------------------
+    # Instance Methods: Serialization
+    # -------------------------------------------------------------------------
 
     def to_yaml_string(self) -> str:
         """
         Serialize the model to a YAML-formatted string.
 
-        Useful for debugging, logging, or generating reference YAML.
-        Uses block style for readability.
+        Useful for debugging, logging active configuration at startup,
+        or generating reference/template YAML files.
 
         Returns:
-            YAML-formatted string representation of the model.
+            Human-readable YAML string with block style formatting.
 
         Example:
-            >>> print(locale.to_yaml_string())
-            messages:
-              greeting: Hello {name}
+            >>> print(config.to_yaml_string())
+            thresholds:
+                zscore: 3.0
+                minimum_count: 10
+            enabled: true
         """
         return yaml.dump(
             self.model_dump(),
@@ -140,69 +444,57 @@ class BaseConfigModel(BaseModel):
             width=100,
         )
 
-    def __repr__(self) -> str:
-        """
-        Return a compact string representation for debugging.
 
-        Truncates long string values to prevent console spam when
-        inspecting large locale models. Shows class name and field
-        count for nested models.
-
-        Returns:
-            Compact string representation.
-
-        Example:
-            >>> repr(locale)
-            "MessagesLocale(messages=DataQualityMessages(4 fields), ...)"
-        """
-        field_reprs: list[str] = []
-
-        for field_name in self.__class__.model_fields:
-            field_value: Any = getattr(self, field_name)
-            field_reprs.append(f'{field_name}={_compact_repr(field_value)}')
-
-        return f'{self.__class__.__name__}({", ".join(field_reprs)})'
+# -----------------------------------------------------------------------------
+# Private Helper Functions
+# -----------------------------------------------------------------------------
 
 
-def _compact_repr(value: object) -> str:
+def _format_value_for_repr(value: object) -> str:
     """
-    Create a compact representation of a value for __repr__ output.
+    Create a compact string representation of a value for __repr__ output.
 
-    Handles nested models, long strings, and collections gracefully
-    to prevent console spam.
+    Handles nested models, long strings, and collections to prevent
+    console spam during debugging sessions.
 
     Args:
-        value: Any value to represent.
+        value: Any value to format compactly.
 
     Returns:
-        Compact string representation.
+        Compact string suitable for inclusion in __repr__ output.
     """
-    compact_value: str
+    formatted_output: str
 
     match value:
-        case BaseConfigModel():
+        # Nested config models: show class name and field count only.
+        case FrozenModel():
             field_count: int = len(value.__class__.model_fields)
-            compact_value = f'{value.__class__.__name__}({field_count} fields)'
+            formatted_output = f'{value.__class__.__name__}({field_count} fields)'
 
-        # Use guards (if condition) to handle long strings separately
-        case str() if len(value) > _REPR_MAX_STR_LENGTH:
-            compact_value = f'{value[:_REPR_MAX_STR_LENGTH]!r}...'
+        # Long strings: truncate with ellipsis.
+        case str() if len(value) > _REPR_MAX_STRING_LENGTH:
+            truncated: str = value[:_REPR_MAX_STRING_LENGTH]
+            formatted_output = f'{truncated!r}...'
 
+        # Short strings: show with quotes.
         case str():
-            compact_value = repr(value)
+            formatted_output = repr(value)
 
-        # Use implicit truthiness of lists to detect non-empty lists
+        # Non-empty lists: show type of first item and count.
         case list() if value:
-            first_item_type: str = type(value[0]).__name__
-            compact_value = f'[{first_item_type}, ...] ({len(value)} items)'
+            first_type: str = type(value[0]).__name__
+            formatted_output = f'[{first_type}, ...] ({len(value)} items)'
 
+        # Empty lists.
         case list():
-            compact_value = '[]'
+            formatted_output = '[]'
 
+        # Dictionaries: show key count only.
         case dict():
-            compact_value = f'{{...}} ({len(value)} keys)'
+            formatted_output = f'{{...}} ({len(value)} keys)'
 
+        # Fallback: default repr.
         case _:
-            compact_value = repr(value)
+            formatted_output = repr(value)
 
-    return compact_value
+    return formatted_output

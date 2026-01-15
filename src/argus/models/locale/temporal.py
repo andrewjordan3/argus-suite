@@ -11,7 +11,7 @@ statistical techniques to detect fraud emergence, pattern changes, and temporal 
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'TemporalAnalysis',
@@ -72,7 +72,7 @@ __all__: list[str] = [
 ]
 
 
-class TemporalAnalysisMetricDisplayNames(BaseConfigModel):
+class TemporalAnalysisMetricDisplayNames(FrozenModel):
     """
     Human-readable names for temporal metrics.
 
@@ -103,7 +103,7 @@ class TemporalAnalysisMetricDisplayNames(BaseConfigModel):
     )
 
 
-class TemporalAnalysisMetricDefinitionItem(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionItem(FrozenModel):
     """
     Definition of a single temporal metric.
 
@@ -122,7 +122,7 @@ class TemporalAnalysisMetricDefinitionItem(BaseConfigModel):
     risk: str | None = None
 
 
-class TemporalAnalysisMetricDefinitionAfterHoursRate(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionAfterHoursRate(FrozenModel):
     """
     Definition of after-hours transaction rate metric.
 
@@ -139,7 +139,7 @@ class TemporalAnalysisMetricDefinitionAfterHoursRate(BaseConfigModel):
     risk: str
 
 
-class TemporalAnalysisMetricDefinitionsMetrics(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsMetrics(FrozenModel):
     """
     Definitions of all temporal metrics tracked.
 
@@ -158,7 +158,7 @@ class TemporalAnalysisMetricDefinitionsMetrics(BaseConfigModel):
     avg_transaction_cost: TemporalAnalysisMetricDefinitionItem
 
 
-class TemporalAnalysisMetricDefinitionsAnalysisTypesMonthOverMonth(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsAnalysisTypesMonthOverMonth(FrozenModel):
     """
     Definition of month-over-month analysis methodology.
 
@@ -177,7 +177,7 @@ class TemporalAnalysisMetricDefinitionsAnalysisTypesMonthOverMonth(BaseConfigMod
     )
 
 
-class TemporalAnalysisMetricDefinitionsAnalysisTypesAutoCorrelation(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsAnalysisTypesAutoCorrelation(FrozenModel):
     """
     Definition of autocorrelation analysis methodology.
 
@@ -194,9 +194,7 @@ class TemporalAnalysisMetricDefinitionsAnalysisTypesAutoCorrelation(BaseConfigMo
     )
 
 
-class TemporalAnalysisMetricDefinitionsAnalysisTypesFraudPatternsPatterns(
-    BaseConfigModel
-):
+class TemporalAnalysisMetricDefinitionsAnalysisTypesFraudPatternsPatterns(FrozenModel):
     """
     Definitions of known fraud patterns for temporal analysis.
     Each fraud signature has its own description.
@@ -219,7 +217,7 @@ class TemporalAnalysisMetricDefinitionsAnalysisTypesFraudPatternsPatterns(
     operational_anomaly: str
 
 
-class TemporalAnalysisMetricDefinitionsAnalysisTypesItem(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsAnalysisTypesItem(FrozenModel):
     """
     Definition of a temporal analysis methodology.
 
@@ -246,7 +244,7 @@ class TemporalAnalysisMetricDefinitionsAnalysisTypesItem(BaseConfigModel):
     )
 
 
-class TemporalAnalysisMetricDefinitionsAnalysisTypes(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsAnalysisTypes(FrozenModel):
     """
     Definitions of all temporal analysis methodologies.
 
@@ -271,7 +269,7 @@ class TemporalAnalysisMetricDefinitionsAnalysisTypes(BaseConfigModel):
     fraud_patterns: TemporalAnalysisMetricDefinitionsAnalysisTypesItem
 
 
-class TemporalAnalysisMetricDefinitionsPeriodComparison(BaseConfigModel):
+class TemporalAnalysisMetricDefinitionsPeriodComparison(FrozenModel):
     """
     Definition of period comparison methodology.
 
@@ -288,7 +286,7 @@ class TemporalAnalysisMetricDefinitionsPeriodComparison(BaseConfigModel):
     )
 
 
-class TemporalAnalysisMetricDefinitions(BaseConfigModel):
+class TemporalAnalysisMetricDefinitions(FrozenModel):
     """
     Complete metric definitions section configuration.
 
@@ -307,7 +305,7 @@ class TemporalAnalysisMetricDefinitions(BaseConfigModel):
     period_comparison: TemporalAnalysisMetricDefinitionsPeriodComparison
 
 
-class TemporalAnalysisInsufficientData(BaseConfigModel):
+class TemporalAnalysisInsufficientData(FrozenModel):
     """
     Warning messages when insufficient data for temporal analysis.
 
@@ -326,7 +324,7 @@ class TemporalAnalysisInsufficientData(BaseConfigModel):
     recommendation: str
 
 
-class TemporalAnalysisSummaryStatistics(BaseConfigModel):
+class TemporalAnalysisSummaryStatistics(FrozenModel):
     """
     Configuration for summary statistics subsection.
 
@@ -341,7 +339,7 @@ class TemporalAnalysisSummaryStatistics(BaseConfigModel):
     )
 
 
-class TemporalAnalysisTopEntitiesRecommendations(BaseConfigModel):
+class TemporalAnalysisTopEntitiesRecommendations(FrozenModel):
     """
     Investigation priority recommendations by risk category.
 
@@ -360,7 +358,7 @@ class TemporalAnalysisTopEntitiesRecommendations(BaseConfigModel):
     low: str
 
 
-class TemporalAnalysisTopEntitiesCurrentRisks(BaseConfigModel):
+class TemporalAnalysisTopEntitiesCurrentRisks(FrozenModel):
     """
     Configuration for current risks subsection.
 
@@ -377,7 +375,7 @@ class TemporalAnalysisTopEntitiesCurrentRisks(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesFraudPatternsPatterns(BaseConfigModel):
+class TemporalAnalysisTopEntitiesFraudPatternsPatterns(FrozenModel):
     """
     Configuration for fraud patterns patterns subsection.
 
@@ -394,7 +392,7 @@ class TemporalAnalysisTopEntitiesFraudPatternsPatterns(BaseConfigModel):
     operational_anomaly: str
 
 
-class TemporalAnalysisTopEntitiesFraudPatterns(BaseConfigModel):
+class TemporalAnalysisTopEntitiesFraudPatterns(FrozenModel):
     """
     Configuration for fraud patterns subsection.
 
@@ -411,7 +409,7 @@ class TemporalAnalysisTopEntitiesFraudPatterns(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesMonthOverMonthSuddenSpikes(BaseConfigModel):
+class TemporalAnalysisTopEntitiesMonthOverMonthSuddenSpikes(FrozenModel):
     """
     Configuration for one month-over-month sudden spikes subgroup.
 
@@ -426,7 +424,7 @@ class TemporalAnalysisTopEntitiesMonthOverMonthSuddenSpikes(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesMonthOverMonthGradualEscalation(BaseConfigModel):
+class TemporalAnalysisTopEntitiesMonthOverMonthGradualEscalation(FrozenModel):
     """
     Configuration for one month-over-month gradual escalation subgroup.
 
@@ -441,7 +439,7 @@ class TemporalAnalysisTopEntitiesMonthOverMonthGradualEscalation(BaseConfigModel
     none: str
 
 
-class TemporalAnalysisTopEntitiesMonthOverMonthVolatility(BaseConfigModel):
+class TemporalAnalysisTopEntitiesMonthOverMonthVolatility(FrozenModel):
     """
     Configuration for one month-over-month volatility subgroup.
 
@@ -455,7 +453,7 @@ class TemporalAnalysisTopEntitiesMonthOverMonthVolatility(BaseConfigModel):
     high_note: str
 
 
-class TemporalAnalysisTopEntitiesMonthOverMonth(BaseConfigModel):
+class TemporalAnalysisTopEntitiesMonthOverMonth(FrozenModel):
     """
     Configuration for month-over-month analysis subsection.
 
@@ -474,7 +472,7 @@ class TemporalAnalysisTopEntitiesMonthOverMonth(BaseConfigModel):
     volatility: TemporalAnalysisTopEntitiesMonthOverMonthVolatility
 
 
-class TemporalAnalysisTopEntitiesChangePoints(BaseConfigModel):
+class TemporalAnalysisTopEntitiesChangePoints(FrozenModel):
     """
     Configuration for change points subsection.
 
@@ -497,7 +495,7 @@ class TemporalAnalysisTopEntitiesChangePoints(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesAutocorrelation(BaseConfigModel):
+class TemporalAnalysisTopEntitiesAutocorrelation(FrozenModel):
     """
     Configuration for autocorrelation subsection.
 
@@ -518,7 +516,7 @@ class TemporalAnalysisTopEntitiesAutocorrelation(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesRollingAnomalies(BaseConfigModel):
+class TemporalAnalysisTopEntitiesRollingAnomalies(FrozenModel):
     """
     Configuration for rolling window anomalies subsection.
 
@@ -537,7 +535,7 @@ class TemporalAnalysisTopEntitiesRollingAnomalies(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesTrends(BaseConfigModel):
+class TemporalAnalysisTopEntitiesTrends(FrozenModel):
     """
     Configuration for trends subsection.
 
@@ -554,7 +552,7 @@ class TemporalAnalysisTopEntitiesTrends(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisTopEntitiesPeriodComparison(BaseConfigModel):
+class TemporalAnalysisTopEntitiesPeriodComparison(FrozenModel):
     """
     Configuration for period comparison subsection.
 
@@ -571,7 +569,7 @@ class TemporalAnalysisTopEntitiesPeriodComparison(BaseConfigModel):
     explanation: str
 
 
-class TemporalAnalysisTopEntitiesEntitySummary(BaseConfigModel):
+class TemporalAnalysisTopEntitiesEntitySummary(FrozenModel):
     """
     Configuration for final entity summary and recommendation.
 
@@ -590,7 +588,7 @@ class TemporalAnalysisTopEntitiesEntitySummary(BaseConfigModel):
     recommendations: TemporalAnalysisTopEntitiesRecommendations
 
 
-class TemporalAnalysisTopEntities(BaseConfigModel):
+class TemporalAnalysisTopEntities(FrozenModel):
     """
     Complete configuration for top high-risk entities section.
 
@@ -651,7 +649,7 @@ class TemporalAnalysisTopEntities(BaseConfigModel):
     entity_summary: TemporalAnalysisTopEntitiesEntitySummary
 
 
-class TemporalAnalysisRiskDistributionGroup(BaseConfigModel):
+class TemporalAnalysisRiskDistributionGroup(FrozenModel):
     """
     Configuration for one entity type's risk distribution.
 
@@ -668,7 +666,7 @@ class TemporalAnalysisRiskDistributionGroup(BaseConfigModel):
     none: str
 
 
-class TemporalAnalysisRiskDistributionOverall(BaseConfigModel):
+class TemporalAnalysisRiskDistributionOverall(FrozenModel):
     """
     Configuration for overall risk distribution summary.
 
@@ -689,7 +687,7 @@ class TemporalAnalysisRiskDistributionOverall(BaseConfigModel):
     low: FormatStr[P.TemporalRiskDistLow]
 
 
-class TemporalAnalysisRiskDistribution(BaseConfigModel):
+class TemporalAnalysisRiskDistribution(FrozenModel):
     """
     Complete risk distribution section configuration.
 
@@ -708,7 +706,7 @@ class TemporalAnalysisRiskDistribution(BaseConfigModel):
     vehicles: TemporalAnalysisRiskDistributionGroup
 
 
-class TemporalAnalysisFraudTimelinePeakInsightSingle(BaseConfigModel):
+class TemporalAnalysisFraudTimelinePeakInsightSingle(FrozenModel):
     """
     Insight text for one peak scenario.
 
@@ -721,7 +719,7 @@ class TemporalAnalysisFraudTimelinePeakInsightSingle(BaseConfigModel):
     paragraphs: FormatStrList[P.TemporalTimelinePeakSingle]
 
 
-class TemporalAnalysisFraudTimelinePeakInsightMultiple(BaseConfigModel):
+class TemporalAnalysisFraudTimelinePeakInsightMultiple(FrozenModel):
     """
     Insight text for one peak scenario.
 
@@ -734,7 +732,7 @@ class TemporalAnalysisFraudTimelinePeakInsightMultiple(BaseConfigModel):
     paragraphs: FormatStrList[P.TemporalTimelinePeakMultiple]
 
 
-class TemporalAnalysisFraudTimelinePeakInsight(BaseConfigModel):
+class TemporalAnalysisFraudTimelinePeakInsight(FrozenModel):
     """
     Configuration for peak change activity insights.
 
@@ -751,7 +749,7 @@ class TemporalAnalysisFraudTimelinePeakInsight(BaseConfigModel):
     peak_multiple: TemporalAnalysisFraudTimelinePeakInsightMultiple
 
 
-class TemporalAnalysisFraudTimelineFrequencyIntro(BaseConfigModel):
+class TemporalAnalysisFraudTimelineFrequencyIntro(FrozenModel):
     """
     Introduction to change point frequency analysis.
 
@@ -764,7 +762,7 @@ class TemporalAnalysisFraudTimelineFrequencyIntro(BaseConfigModel):
     subtitle: str
 
 
-class TemporalAnalysisFraudTimelinePatterns(BaseConfigModel):
+class TemporalAnalysisFraudTimelinePatterns(FrozenModel):
     """
     Configuration for temporal pattern insights.
 
@@ -785,7 +783,7 @@ class TemporalAnalysisFraudTimelinePatterns(BaseConfigModel):
     distributed: str
 
 
-class TemporalAnalysisFraudTimelineNoChanges(BaseConfigModel):
+class TemporalAnalysisFraudTimelineNoChanges(FrozenModel):
     """
     Message when no change points detected.
 
@@ -796,7 +794,7 @@ class TemporalAnalysisFraudTimelineNoChanges(BaseConfigModel):
     paragraphs: list[str]
 
 
-class TemporalAnalysisFraudTimeline(BaseConfigModel):
+class TemporalAnalysisFraudTimeline(FrozenModel):
     """
     Complete fraud emergence timeline section configuration.
 
@@ -822,7 +820,7 @@ class TemporalAnalysisFraudTimeline(BaseConfigModel):
     no_changes: TemporalAnalysisFraudTimelineNoChanges
 
 
-class TemporalAnalysisFraudPatternSummaryPattern[DescriptionType](BaseConfigModel):
+class TemporalAnalysisFraudPatternSummaryPattern[DescriptionType](FrozenModel):
     """
     Configuration for one fraud pattern type.
 
@@ -871,7 +869,7 @@ class TemporalAnalysisFraudPatternSummaryOperationalAnomaly(
     """Pattern configuration for operational anomaly."""
 
 
-class TemporalAnalysisFraudPatternSummary(BaseConfigModel):
+class TemporalAnalysisFraudPatternSummary(FrozenModel):
     """
     Complete fraud pattern detection summary configuration.
 
@@ -896,7 +894,7 @@ class TemporalAnalysisFraudPatternSummary(BaseConfigModel):
     none_detected: str
 
 
-class TemporalAnalysisComparativeInterpretationParagraph(BaseConfigModel):
+class TemporalAnalysisComparativeInterpretationParagraph(FrozenModel):
     """
     Message for significant comparative temporal analysis interpretation.
 
@@ -907,7 +905,7 @@ class TemporalAnalysisComparativeInterpretationParagraph(BaseConfigModel):
     paragraphs: FormatStrList[P.TemporalComparativeSignificant]
 
 
-class TemporalAnalysisComparativeInterpretations(BaseConfigModel):
+class TemporalAnalysisComparativeInterpretations(FrozenModel):
     """
     Interpretation messages for comparative temporal analysis.
 
@@ -925,7 +923,7 @@ class TemporalAnalysisComparativeInterpretations(BaseConfigModel):
     not_significant: TemporalAnalysisComparativeInterpretationParagraph
 
 
-class TemporalAnalysisComparativeEffectSizeGuide(BaseConfigModel):
+class TemporalAnalysisComparativeEffectSizeGuide(FrozenModel):
     """
     Guide for interpreting Cliff's Delta in comparative analysis.
 
@@ -951,7 +949,7 @@ class TemporalAnalysisComparativeEffectSizeGuide(BaseConfigModel):
     probability_explanation: FormatStrList[P.TemporalComparativeProbability]
 
 
-class TemporalAnalysisComparativeAnalysis(BaseConfigModel):
+class TemporalAnalysisComparativeAnalysis(FrozenModel):
     """
     Complete comparative temporal analysis configuration.
 
@@ -985,7 +983,7 @@ class TemporalAnalysisComparativeAnalysis(BaseConfigModel):
     effect_size_guide: TemporalAnalysisComparativeEffectSizeGuide
 
 
-class TemporalAnalysisInterpretationGuideHighConfidence(BaseConfigModel):
+class TemporalAnalysisInterpretationGuideHighConfidence(FrozenModel):
     """
     High-confidence interpretation guidelines group.
 
@@ -1000,7 +998,7 @@ class TemporalAnalysisInterpretationGuideHighConfidence(BaseConfigModel):
     )
 
 
-class TemporalAnalysisInterpretationGuideMediumConfidence(BaseConfigModel):
+class TemporalAnalysisInterpretationGuideMediumConfidence(FrozenModel):
     """
     Medium-confidence interpretation guidelines group.
 
@@ -1017,7 +1015,7 @@ class TemporalAnalysisInterpretationGuideMediumConfidence(BaseConfigModel):
     )
 
 
-class TemporalAnalysisInterpretationGuideLowerPriority(BaseConfigModel):
+class TemporalAnalysisInterpretationGuideLowerPriority(FrozenModel):
     """
     Lower-priority interpretation guidelines group.
 
@@ -1034,7 +1032,7 @@ class TemporalAnalysisInterpretationGuideLowerPriority(BaseConfigModel):
     )
 
 
-class TemporalAnalysisInterpretationGuide(BaseConfigModel):
+class TemporalAnalysisInterpretationGuide(FrozenModel):
     """
     Complete interpretation guide for temporal findings.
 
@@ -1053,7 +1051,7 @@ class TemporalAnalysisInterpretationGuide(BaseConfigModel):
     lower_priority: TemporalAnalysisInterpretationGuideLowerPriority
 
 
-class TemporalAnalysisCaveats(BaseConfigModel):
+class TemporalAnalysisCaveats(FrozenModel):
     """
     Limitations and caveats for temporal analysis.
 
@@ -1072,7 +1070,7 @@ class TemporalAnalysisCaveats(BaseConfigModel):
     continuation: str
 
 
-class TemporalAnalysisIntroduction(BaseConfigModel):
+class TemporalAnalysisIntroduction(FrozenModel):
     """
     Introduction to temporal analysis section.
 
@@ -1085,7 +1083,7 @@ class TemporalAnalysisIntroduction(BaseConfigModel):
     paragraphs: FormatStrList[P.TemporalIntroAll]
 
 
-class TemporalAnalysis(BaseConfigModel):
+class TemporalAnalysis(FrozenModel):
     """
     Complete advanced temporal analysis section configuration.
 

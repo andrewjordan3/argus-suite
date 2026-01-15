@@ -12,7 +12,7 @@ of their transaction patterns.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'DriverAnalysis',
@@ -22,7 +22,7 @@ __all__: list[str] = [
 ]
 
 
-class DriverAnalysisTableHeaders(BaseConfigModel):
+class DriverAnalysisTableHeaders(FrozenModel):
     """
     Column headers for driver risk summary table.
 
@@ -55,7 +55,7 @@ class DriverAnalysisTableHeaders(BaseConfigModel):
     avg_cost: str = Field(description='Column header for average transaction cost')
 
 
-class DriverAnalysisDeepDiveSections(BaseConfigModel):
+class DriverAnalysisDeepDiveSections(FrozenModel):
     """
     Section content for detailed driver profile deep dive.
 
@@ -102,7 +102,7 @@ class DriverAnalysisDeepDiveSections(BaseConfigModel):
     )
 
 
-class DriverAnalysisDeepDive(BaseConfigModel):
+class DriverAnalysisDeepDive(FrozenModel):
     """
     Configuration for detailed driver profile section.
 
@@ -120,7 +120,7 @@ class DriverAnalysisDeepDive(BaseConfigModel):
     sections: DriverAnalysisDeepDiveSections
 
 
-class DriverAnalysis(BaseConfigModel):
+class DriverAnalysis(FrozenModel):
     """
     Complete driver analysis section configuration.
 

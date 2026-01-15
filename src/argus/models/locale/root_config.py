@@ -25,7 +25,7 @@ separate policy and user configuration files, not in locale files.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import RootConfigModel
 from argus.models.locale.analysis_scope import AnalysisScope
 from argus.models.locale.corrections import MultipleTestingCorrection
 from argus.models.locale.data_quality import DataPreparation, DataQuality
@@ -56,7 +56,7 @@ __all__: list[str] = ['ReportConfig']
 # ============================================================================
 
 
-class ReportConfig(BaseConfigModel):
+class ReportConfig(RootConfigModel):
     """
     Complete ARGUS locale configuration model.
 

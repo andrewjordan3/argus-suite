@@ -12,7 +12,7 @@ providing either a "no concerns" message or detailed reporting of significant fi
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'ExecutiveSummary',
@@ -25,7 +25,7 @@ __all__: list[str] = [
 ]
 
 
-class ExecutiveSummaryNoFindings(BaseConfigModel):
+class ExecutiveSummaryNoFindings(FrozenModel):
     """
     Executive summary content when no significant findings exist.
 
@@ -44,7 +44,7 @@ class ExecutiveSummaryNoFindings(BaseConfigModel):
     )
 
 
-class ExecutiveSummaryFindingsPresentRateComparison(BaseConfigModel):
+class ExecutiveSummaryFindingsPresentRateComparison(FrozenModel):
     """
     Template for reporting significant rate comparison findings.
 
@@ -71,7 +71,7 @@ class ExecutiveSummaryFindingsPresentRateComparison(BaseConfigModel):
     )
 
 
-class ExecutiveSummaryFindingsPresentCostComparison(BaseConfigModel):
+class ExecutiveSummaryFindingsPresentCostComparison(FrozenModel):
     """
     Template for reporting significant cost comparison findings.
 
@@ -94,7 +94,7 @@ class ExecutiveSummaryFindingsPresentCostComparison(BaseConfigModel):
     )
 
 
-class ExecutiveSummaryFindingsPresentStatisticalStrength(BaseConfigModel):
+class ExecutiveSummaryFindingsPresentStatisticalStrength(FrozenModel):
     """
     Template for reporting statistical strength of findings.
 
@@ -111,7 +111,7 @@ class ExecutiveSummaryFindingsPresentStatisticalStrength(BaseConfigModel):
     interpretation: str = Field(description='Statement about statistical reliability')
 
 
-class ExecutiveSummaryFindingsPresent(BaseConfigModel):
+class ExecutiveSummaryFindingsPresent(FrozenModel):
     """
     Executive summary content when significant findings exist.
 
@@ -141,7 +141,7 @@ class ExecutiveSummaryFindingsPresent(BaseConfigModel):
     )
 
 
-class ExecutiveSummaryRecommendation(BaseConfigModel):
+class ExecutiveSummaryRecommendation(FrozenModel):
     """
     Recommendation section shown when significant findings exist.
 
@@ -158,7 +158,7 @@ class ExecutiveSummaryRecommendation(BaseConfigModel):
     )
 
 
-class ExecutiveSummary(BaseConfigModel):
+class ExecutiveSummary(FrozenModel):
     """
     Complete executive summary section configuration.
 

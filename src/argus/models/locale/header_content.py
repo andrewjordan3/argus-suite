@@ -10,11 +10,12 @@ metadata labels, and key analysis parameters.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['ReportHeader', 'ReportHeaderLabels']
 
-class ReportHeaderLabels(BaseConfigModel):
+
+class ReportHeaderLabels(FrozenModel):
     """
     Labels for report metadata fields displayed in header.
 
@@ -39,7 +40,7 @@ class ReportHeaderLabels(BaseConfigModel):
     location_id: str = Field(description='Label for numeric location ID field')
 
 
-class ReportHeader(BaseConfigModel):
+class ReportHeader(FrozenModel):
     """
     Complete report header configuration.
 

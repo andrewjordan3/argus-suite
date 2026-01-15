@@ -12,13 +12,15 @@ pre-merged datasets). Supports CSV or Parquet.
 from pathlib import Path
 from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'DataSourcesConfig',
 ]
 
-class DataSourcesConfig(BaseModel):
+class DataSourcesConfig(FrozenModel):
     """
     Configuration for input data file paths.
 
@@ -53,12 +55,6 @@ class DataSourcesConfig(BaseModel):
     Raises:
         ValueError: If configuration doesn't provide valid data sources
     """
-
-    model_config = ConfigDict(
-        extra='forbid',  # Reject unknown fields to catch typos early
-        frozen=False,  # Allow mutation for path resolution
-        validate_default=True,  # Validate default values
-    )
 
     fuel_transactions: Annotated[
         Path | None,
@@ -195,9 +191,13 @@ class DataSourcesConfig(BaseModel):
             """Resolve path if relative, leave absolute paths unchanged."""
             if path is None:
                 return None
-            if path.is_absolute():
-                return path
-            return (base / path).resolve()
+
+            expanded_path: Path = path.expanduser()
+
+            if expanded_path.is_absolute():
+                return expanded_path.resolve()
+
+            return (base / expanded_path).resolve()
 
         return self.__class__(
             fuel_transactions=resolve_if_relative(self.fuel_transactions),

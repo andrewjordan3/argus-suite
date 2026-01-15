@@ -12,7 +12,7 @@ consistency and clarity in documentation.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'StatisticalMethodology',
@@ -32,7 +32,7 @@ __all__: list[str] = [
 ]
 
 
-class StatisticalMethodologyEffectRiskRatio(BaseConfigModel):
+class StatisticalMethodologyEffectRiskRatio(FrozenModel):
     """
     Risk Ratio effect size documentation with locale-specific formatting.
 
@@ -55,7 +55,7 @@ class StatisticalMethodologyEffectRiskRatio(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyEffectOddsRatio(BaseConfigModel):
+class StatisticalMethodologyEffectOddsRatio(FrozenModel):
     """
     Odds Ratio effect size documentation with locale-specific interpretation.
 
@@ -77,7 +77,7 @@ class StatisticalMethodologyEffectOddsRatio(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyEffectRiskDifference(BaseConfigModel):
+class StatisticalMethodologyEffectRiskDifference(FrozenModel):
     """
     Risk Difference effect size documentation with locale-specific interpretation.
 
@@ -100,7 +100,7 @@ class StatisticalMethodologyEffectRiskDifference(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyEffectSizes(BaseConfigModel):
+class StatisticalMethodologyEffectSizes(FrozenModel):
     """
     Documentation of effect size measures used in analysis.
 
@@ -122,7 +122,7 @@ class StatisticalMethodologyEffectSizes(BaseConfigModel):
     risk_difference: StatisticalMethodologyEffectRiskDifference
 
 
-class StatisticalMethodologySignificancePValue(BaseConfigModel):
+class StatisticalMethodologySignificancePValue(FrozenModel):
     """
     Documentation of p-value interpretation.
 
@@ -148,7 +148,7 @@ class StatisticalMethodologySignificancePValue(BaseConfigModel):
     )
 
 
-class StatisticalMethodologySignificanceConfidenceIntervals(BaseConfigModel):
+class StatisticalMethodologySignificanceConfidenceIntervals(FrozenModel):
     """
     Documentation of confidence interval interpretation.
 
@@ -169,7 +169,7 @@ class StatisticalMethodologySignificanceConfidenceIntervals(BaseConfigModel):
     )
 
 
-class StatisticalMethodologySignificance(BaseConfigModel):
+class StatisticalMethodologySignificance(FrozenModel):
     """
     Documentation of statistical significance concepts.
 
@@ -189,7 +189,7 @@ class StatisticalMethodologySignificance(BaseConfigModel):
     confidence_intervals: StatisticalMethodologySignificanceConfidenceIntervals
 
 
-class StatisticalMethodologyNonParametricItem(BaseConfigModel):
+class StatisticalMethodologyNonParametricItem(FrozenModel):
     """
     Documentation of a general non-parametric test without interpretation guidelines.
 
@@ -209,7 +209,7 @@ class StatisticalMethodologyNonParametricItem(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyNonParametricCliffsDelta(BaseConfigModel):
+class StatisticalMethodologyNonParametricCliffsDelta(FrozenModel):
     """
     Cliff's Delta effect size documentation with locale-specific interpretation.
 
@@ -234,7 +234,7 @@ class StatisticalMethodologyNonParametricCliffsDelta(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyNonParametricCohensD(BaseConfigModel):
+class StatisticalMethodologyNonParametricCohensD(FrozenModel):
     """
     Cohen's d effect size documentation with locale-specific interpretation.
 
@@ -259,7 +259,7 @@ class StatisticalMethodologyNonParametricCohensD(BaseConfigModel):
     )
 
 
-class StatisticalMethodologyNonParametricTests(BaseConfigModel):
+class StatisticalMethodologyNonParametricTests(FrozenModel):
     """
     Documentation of non-parametric tests used in analysis.
 
@@ -279,7 +279,7 @@ class StatisticalMethodologyNonParametricTests(BaseConfigModel):
     cohens_d: StatisticalMethodologyNonParametricCohensD
 
 
-class StatisticalMethodologyIndependenceTests(BaseConfigModel):
+class StatisticalMethodologyIndependenceTests(FrozenModel):
     """
     Documentation of independence/association tests.
 
@@ -298,7 +298,7 @@ class StatisticalMethodologyIndependenceTests(BaseConfigModel):
     cramers_v: StatisticalMethodologyNonParametricItem
 
 
-class StatisticalMethodologyMultipleTesting(BaseConfigModel):
+class StatisticalMethodologyMultipleTesting(FrozenModel):
     """
     Documentation of multiple testing correction procedure.
 
@@ -322,7 +322,7 @@ class StatisticalMethodologyMultipleTesting(BaseConfigModel):
     )
 
 
-class StatisticalMethodology(BaseConfigModel):
+class StatisticalMethodology(FrozenModel):
     """
     Complete statistical methodology documentation.
 

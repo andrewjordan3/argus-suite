@@ -6,12 +6,14 @@ These thresholds control detection of patterns over time including sudden spikes
 gradual escalations, period comparisons, and persistent behavioral patterns.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['TemporalAnalysisConfig']
 
 
-class TemporalAnalysisConfig(BaseModel):
+class TemporalAnalysisConfig(FrozenModel):
     """
     Thresholds for detecting temporal patterns in transaction behavior.
 
@@ -27,8 +29,6 @@ class TemporalAnalysisConfig(BaseModel):
         off_hours_concentration_threshold: Proportion of off-hours transactions to flag pattern.
         retreat_drop_threshold: Percentage drop after spike to flag spike-and-retreat pattern.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     # -------------------------------------------------------------------------
     # Sudden Spike Detection

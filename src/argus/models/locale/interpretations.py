@@ -12,7 +12,7 @@ consistent across different reports and analyses.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'TestInterpretations',
@@ -28,7 +28,7 @@ __all__: list[str] = [
 ]
 
 
-class TestInterpretationsCostDistributionSignificant(BaseConfigModel):
+class TestInterpretationsCostDistributionSignificant(FrozenModel):
     """
     Interpretation template for significant cost distribution differences.
 
@@ -50,7 +50,7 @@ class TestInterpretationsCostDistributionSignificant(BaseConfigModel):
     )
 
 
-class TestInterpretationsCostDistributionNotSignificant(BaseConfigModel):
+class TestInterpretationsCostDistributionNotSignificant(FrozenModel):
     """
     Interpretation template for non-significant cost differences.
 
@@ -67,7 +67,7 @@ class TestInterpretationsCostDistributionNotSignificant(BaseConfigModel):
     )
 
 
-class TestInterpretationsCostDistribution(BaseConfigModel):
+class TestInterpretationsCostDistribution(FrozenModel):
     """
     Interpretation templates for cost distribution comparisons.
 
@@ -83,7 +83,7 @@ class TestInterpretationsCostDistribution(BaseConfigModel):
     not_significant: TestInterpretationsCostDistributionNotSignificant
 
 
-class TestInterpretationsRateComparisonSignificant(BaseConfigModel):
+class TestInterpretationsRateComparisonSignificant(FrozenModel):
     """
     Interpretation template for significant rate/proportion differences.
 
@@ -105,7 +105,7 @@ class TestInterpretationsRateComparisonSignificant(BaseConfigModel):
     )
 
 
-class TestInterpretationsRateComparisonNotSignificant(BaseConfigModel):
+class TestInterpretationsRateComparisonNotSignificant(FrozenModel):
     """
     Interpretation template for non-significant rate differences.
 
@@ -120,7 +120,7 @@ class TestInterpretationsRateComparisonNotSignificant(BaseConfigModel):
     )
 
 
-class TestInterpretationsRateComparison(BaseConfigModel):
+class TestInterpretationsRateComparison(FrozenModel):
     """
     Interpretation templates for rate/proportion comparisons.
 
@@ -135,7 +135,7 @@ class TestInterpretationsRateComparison(BaseConfigModel):
     not_significant: TestInterpretationsRateComparisonNotSignificant
 
 
-class TestInterpretationsCliffsDelta(BaseConfigModel):
+class TestInterpretationsCliffsDelta(FrozenModel):
     """
     Format string for Cliff's Delta effect size reporting.
 
@@ -152,7 +152,7 @@ class TestInterpretationsCliffsDelta(BaseConfigModel):
     )
 
 
-class TestInterpretationsCohensD(BaseConfigModel):
+class TestInterpretationsCohensD(FrozenModel):
     """
     Format string for Cohen's D effect size reporting.
 
@@ -168,7 +168,7 @@ class TestInterpretationsCohensD(BaseConfigModel):
     )
 
 
-class TestInterpretationsPValues(BaseConfigModel):
+class TestInterpretationsPValues(FrozenModel):
     """
     Format strings for p-value significance levels.
 
@@ -193,7 +193,7 @@ class TestInterpretationsPValues(BaseConfigModel):
     )
 
 
-class TestInterpretations(BaseConfigModel):
+class TestInterpretations(FrozenModel):
     """
     Complete collection of test interpretation templates.
 

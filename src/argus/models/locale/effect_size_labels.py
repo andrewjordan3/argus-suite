@@ -11,7 +11,7 @@ numeric effect sizes into human-readable descriptions.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'EffectSizeCliffsDeltaLabels',
@@ -21,7 +21,7 @@ __all__: list[str] = [
 ]
 
 
-class EffectSizeCliffsDeltaLabels(BaseConfigModel):
+class EffectSizeCliffsDeltaLabels(FrozenModel):
     """
     Text labels for interpreting Cliff's Delta effect size magnitudes.
 
@@ -41,7 +41,7 @@ class EffectSizeCliffsDeltaLabels(BaseConfigModel):
     large: str = Field(description="Label for large Cliff's Delta")
 
 
-class EffectSizeCohensDLabels(BaseConfigModel):
+class EffectSizeCohensDLabels(FrozenModel):
     """
     Text labels for interpreting Cohen's d effect size magnitudes.
 
@@ -61,7 +61,7 @@ class EffectSizeCohensDLabels(BaseConfigModel):
     large: str = Field(description="Label for large Cohen's d")
 
 
-class EffectSizeDirectionLabels(BaseConfigModel):
+class EffectSizeDirectionLabels(FrozenModel):
     """
     Text labels for describing direction of effects.
 
@@ -77,7 +77,7 @@ class EffectSizeDirectionLabels(BaseConfigModel):
     lower: str = Field(description='Label for lower/decreased direction')
 
 
-class EffectSizeLabels(BaseConfigModel):
+class EffectSizeLabels(FrozenModel):
     """
     Complete set of effect size interpretation labels.
 

@@ -11,12 +11,12 @@ analysis pattern.)
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['VehicleAnalysis', 'VehicleAnalysisTableHeaders']
 
 
-class VehicleAnalysisTableHeaders(BaseConfigModel):
+class VehicleAnalysisTableHeaders(FrozenModel):
     """
     Column headers for vehicle risk summary table.
 
@@ -47,7 +47,7 @@ class VehicleAnalysisTableHeaders(BaseConfigModel):
     avg_cost: str = Field(description='Column header for average transaction cost')
 
 
-class VehicleAnalysis(BaseConfigModel):
+class VehicleAnalysis(FrozenModel):
     """
     Complete vehicle analysis section configuration.
 

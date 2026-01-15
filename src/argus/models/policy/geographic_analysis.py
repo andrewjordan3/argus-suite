@@ -8,12 +8,14 @@ locations being exploited for card misuse (e.g., stations near drivers' homes
 where personal vehicles are fueled).
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['GeographicAnalysisConfig']
 
 
-class GeographicAnalysisConfig(BaseModel):
+class GeographicAnalysisConfig(FrozenModel):
     """
     Thresholds for detecting suspicious geographic patterns.
 
@@ -26,8 +28,6 @@ class GeographicAnalysisConfig(BaseModel):
         suspicious_no_eld_rate: Rate of unverified transactions at a station to flag as suspicious.
         low_avg_cost_percentile: Percentile threshold for flagging stations with low average costs.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     # -------------------------------------------------------------------------
     # Product Type Anomalies

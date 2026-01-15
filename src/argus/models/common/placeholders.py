@@ -21,7 +21,7 @@ Usage in Models:
     >>> from argus.models.common.placeholders import Placeholders as P
     >>> from argus.models.common.placeholder_validation import FormatStr
     >>>
-    >>> class DataQualityMessages(BaseConfigModel):
+    >>> class DataQualityMessages(FrozenModel):
     ...     missing_value_item: FormatStr[P.DataQualityMissingValueItem]
     ...     outlier_item: FormatStr[P.DataQualityOutlierItem]
 
@@ -42,6 +42,7 @@ Translator Reference:
 from typing import Final
 
 __all__: list[str] = ['P']
+
 
 class Placeholders:
     """
@@ -1523,7 +1524,6 @@ class Placeholders:
         }
     )
     """Footer statistical rigor - all items."""
-
 
     FooterReportMetadata: Final[frozenset[str]] = frozenset(
         {

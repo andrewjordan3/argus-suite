@@ -12,7 +12,9 @@ large enough to matter.
 from enum import IntEnum, unique
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'CliffsDeltaThresholds',
@@ -48,7 +50,7 @@ class EffectMagnitude(IntEnum):
 # =============================================================================
 # CLIFF'S DELTA
 # =============================================================================
-class CliffsDeltaThresholds(BaseModel):
+class CliffsDeltaThresholds(FrozenModel):
     """
     Thresholds for interpreting Cliff's Delta effect size.
 
@@ -68,8 +70,6 @@ class CliffsDeltaThresholds(BaseModel):
         small: Upper bound for small effect.
         medium: Upper bound for medium effect; values >= this are large.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     negligible: float = Field(
         default=0.147,
@@ -132,7 +132,7 @@ class CliffsDeltaThresholds(BaseModel):
 # =============================================================================
 # COHEN'S D
 # =============================================================================
-class CohensDThresholds(BaseModel):
+class CohensDThresholds(FrozenModel):
     """
     Thresholds for interpreting Cohen's d effect size.
 
@@ -151,8 +151,6 @@ class CohensDThresholds(BaseModel):
         small: Upper bound for small effect.
         medium: Upper bound for medium effect; values >= this are large.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     negligible: float = Field(
         default=0.2,
@@ -212,7 +210,7 @@ class CohensDThresholds(BaseModel):
 # =============================================================================
 # RISK RATIO
 # =============================================================================
-class RiskRatioThresholds(BaseModel):
+class RiskRatioThresholds(FrozenModel):
     """
     Thresholds for interpreting Risk Ratio (Relative Risk).
 
@@ -231,8 +229,6 @@ class RiskRatioThresholds(BaseModel):
         substantial: Threshold for substantial difference (e.g., 2x as likely).
         major_concern: Threshold for major concern warranting investigation.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     substantial: float = Field(
         default=2.0,
@@ -268,7 +264,7 @@ class RiskRatioThresholds(BaseModel):
 # =============================================================================
 # ODDS RATIO
 # =============================================================================
-class OddsRatioThresholds(BaseModel):
+class OddsRatioThresholds(FrozenModel):
     """
     Thresholds for interpreting Odds Ratio.
 
@@ -287,8 +283,6 @@ class OddsRatioThresholds(BaseModel):
         strong: Threshold for strong association.
         very_strong: Threshold for very strong association.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     strong: float = Field(
         default=3.0,
@@ -324,7 +318,7 @@ class OddsRatioThresholds(BaseModel):
 # =============================================================================
 # RISK DIFFERENCE
 # =============================================================================
-class RiskDifferenceThresholds(BaseModel):
+class RiskDifferenceThresholds(FrozenModel):
     """
     Thresholds for interpreting Risk Difference (Absolute Risk Reduction).
 
@@ -340,8 +334,6 @@ class RiskDifferenceThresholds(BaseModel):
         practically_significant: Threshold for practical significance (e.g., 10pp).
         major_difference: Threshold for major difference (e.g., 20pp).
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     practically_significant: float = Field(
         default=0.10,
@@ -379,7 +371,7 @@ class RiskDifferenceThresholds(BaseModel):
 # =============================================================================
 # ROOT CONFIGURATION
 # =============================================================================
-class EffectSizeInterpretationConfig(BaseModel):
+class EffectSizeInterpretationConfig(FrozenModel):
     """
     Configuration for effect size interpretation thresholds.
 
@@ -392,8 +384,6 @@ class EffectSizeInterpretationConfig(BaseModel):
         odds_ratio: Thresholds for Odds Ratio interpretation.
         risk_difference: Thresholds for Risk Difference interpretation.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     cliffs_delta: CliffsDeltaThresholds = Field(
         default_factory=CliffsDeltaThresholds,

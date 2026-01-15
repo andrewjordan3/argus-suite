@@ -6,12 +6,9 @@ This module aggregates all policy sub-configurations into a single PolicyConfig
 model that can be loaded from a YAML file and validated as a cohesive unit.
 """
 
-from pathlib import Path
-from typing import Any, Self
+from pydantic import Field
 
-import yaml
-from pydantic import BaseModel, ConfigDict, Field
-
+from argus.models.common import RootConfigModel
 from argus.models.policy.analysis_thresholds import (
     AnomalyThresholds,
     RiskScoreThresholds,
@@ -28,7 +25,7 @@ from argus.models.policy.temporal_analysis import TemporalAnalysisConfig
 __all__: list[str] = ['PolicyConfig']
 
 
-class PolicyConfig(BaseModel):
+class PolicyConfig(RootConfigModel):
     """
     Root configuration for ARGUS policy settings.
 
@@ -48,8 +45,6 @@ class PolicyConfig(BaseModel):
         temporal_analysis: Thresholds for detecting patterns over time.
         geographic_analysis: Thresholds for detecting suspicious station-level patterns.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     # -------------------------------------------------------------------------
     # Statistical Framework
@@ -115,40 +110,3 @@ class PolicyConfig(BaseModel):
         default_factory=GeographicAnalysisConfig,
         description='Thresholds for detecting suspicious station-level patterns.',
     )
-
-    @classmethod
-    def from_yaml(cls, path: str | Path) -> Self:
-        """
-        Load policy configuration from a YAML file.
-
-        Args:
-            path: Path to the policy YAML file.
-
-        Returns:
-            Validated PolicyConfig instance.
-
-        Raises:
-            FileNotFoundError: If the YAML file does not exist.
-            ValidationError: If the YAML content fails validation.
-        """
-        policy_path = Path(path)
-        with policy_path.open('r', encoding='utf-8') as file_handle:
-            raw_config: dict[str, Any] = yaml.safe_load(file_handle)
-        return cls.model_validate(raw_config)
-
-    @classmethod
-    def from_yaml_text(cls, yaml_text: str) -> Self:
-        """
-        Parse and validate policy configuration from YAML text.
-
-        Args:
-            yaml_text: Raw YAML content as a string.
-
-        Returns:
-            Validated PolicyConfig instance.
-
-        Raises:
-            ValidationError: If the YAML content fails validation.
-        """
-        raw_config: dict[str, Any] = yaml.safe_load(yaml_text)
-        return cls.model_validate(raw_config)

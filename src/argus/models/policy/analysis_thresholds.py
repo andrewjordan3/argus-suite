@@ -8,8 +8,9 @@ import logging
 from enum import IntEnum, unique
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
+from argus.models.common import FrozenModel
 from argus.utils.common_utils import is_missing_like
 
 __all__: list[str] = [
@@ -41,7 +42,7 @@ class RiskCategory(IntEnum):
 # =============================================================================
 # RISK THRESHOLDS CONFIGURATION
 # =============================================================================
-class RiskScoreThresholds(BaseModel):
+class RiskScoreThresholds(FrozenModel):
     """
     Thresholds for categorizing risk scores into severity levels.
 
@@ -54,8 +55,6 @@ class RiskScoreThresholds(BaseModel):
         high: Minimum score for High risk (priority review).
         medium: Minimum score for Medium risk (monitoring recommended).
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     critical: int = Field(
         default=75,
@@ -109,13 +108,21 @@ class RiskScoreThresholds(BaseModel):
 
     def get_risk_category(self, score: float) -> RiskCategory | None:
         """
-        Determine risk category for a given score.
+                Determine risk category for a given score.
 
-        Args:
-            score: Risk score (0-100).
+                Args:
+                    score: Risk score (0-100).
 
-        Returns:
-            RiskCategory enum value describing severity, or None if score is invalid.
+                Returns:
+                    RiskCategory enum value describing severity, or None if score is invalid.
+
+                Note:
+                    Invalid scores are defined as:
+                        - NoneType
+                        - Strings: Empty, whitespace, or common placeholders ('N/A', 'NULL')
+                        - Floats: NaN and Infinity
+                        - Pandas/NumPy: NaT or other library-specific nulls
+                        - Outside 0-100 range
         """
         if is_missing_like(score) or not (0.0 <= score <= 100.0):  # noqa: PLR2004
             logger.warning(
@@ -135,7 +142,7 @@ class RiskScoreThresholds(BaseModel):
 # =============================================================================
 # ANOMALY THRESHOLDS CONFIGURATION
 # =============================================================================
-class AnomalyThresholds(BaseModel):
+class AnomalyThresholds(FrozenModel):
     """
     Thresholds for flagging high rates of suspicious activity.
 
@@ -149,8 +156,6 @@ class AnomalyThresholds(BaseModel):
         high_non_diesel_rate: Threshold for high rate of non-diesel purchases.
         high_after_hours_rate: Threshold for high rate of after-hours transactions.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     high_no_eld_rate: float = Field(
         default=0.20,

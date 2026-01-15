@@ -8,13 +8,15 @@ User configuration model for mapping DataFrame column names to canonical package
 
 from collections.abc import Iterable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = [
     'ColumnMappingConfig',
 ]
 
-class ColumnMappingConfig(BaseModel):
+class ColumnMappingConfig(FrozenModel):
     """
     User configuration mapping their DataFrame column names to canonical package names.
 
@@ -33,8 +35,6 @@ class ColumnMappingConfig(BaseModel):
         canonical field. Required fields must be present; optional fields can
         be omitted if not available in the user's data.
     """
-
-    model_config = ConfigDict(extra='forbid', frozen=True)
 
     # =========================================================================
     # CORE TRANSACTION FIELDS (Required)
@@ -226,15 +226,10 @@ class ColumnMappingConfig(BaseModel):
         """
         required_columns: list[str] = []
 
-        current_data: dict[str, str] = self.model_dump()
-
         # Iterate over the schema definitions (Metadata).
-        # NOTE: We use type(self).model_fields instead of self.model_fields.
-        # Accessing .model_fields on the instance is deprecated in Pydantic V2/V3.
-        # Accessing it via the class (type(self)) is the correct, future-proof approach.
-        for canonical_name, field_info in type(self).model_fields.items():
+        for canonical_name, field_info in self.get_field_definitions().items():
             if field_info.is_required():
-                user_column_name: str = current_data[canonical_name]
+                user_column_name: str = getattr(self, canonical_name)
                 required_columns.append(user_column_name)
 
         return required_columns

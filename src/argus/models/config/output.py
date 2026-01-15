@@ -7,14 +7,16 @@ generation and formatting in the ARGUS system.
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
+
+from argus.models.common import FrozenModel
 
 __all__: list[str] = ['OutputConfig']
 
 # =============================================================================
 # OUTPUT CONFIGURATION
 # =============================================================================
-class OutputConfig(BaseModel):
+class OutputConfig(FrozenModel):
     """
     Configuration for output generation and formatting.
 
@@ -31,8 +33,6 @@ class OutputConfig(BaseModel):
         top_n_entities: Number of top entities (drivers/vehicles) to report.
         auto_analyze_top_drivers: Number of top drivers to auto-analyze in detail.
     """
-
-    model_config = ConfigDict(extra='forbid')
 
     output_directory: Path = Field(
         Path('./output'),
@@ -92,7 +92,20 @@ class OutputConfig(BaseModel):
         Returns:
             Path object for output directory.
         """
-        return Path(value) if isinstance(value, str) else value
+        path: Path = Path(value)
+
+        # Tilde characters (~) must be expanded to the full user home
+        # directory to ensure the path is valid for filesystem operations
+        path = path.expanduser()
+
+        if not path.is_absolute():
+            # Convert relative paths to absolute paths based on
+            # the current working directory
+            path = Path.cwd() / path
+
+        # Resolution anchors the path to the filesystem immediately
+        # to prevent ambiguity if the working directory changes later
+        return path.resolve(strict=False)
 
     @model_validator(mode='after')
     def validate_auto_analyze_subset(self) -> Self:

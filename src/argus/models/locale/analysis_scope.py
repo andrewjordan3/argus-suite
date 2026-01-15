@@ -13,15 +13,19 @@ end of the report, summarizing the key statistics and data included in the analy
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'AnalysisScope',
     'AnalysisScopeLabels',
     'AnalysisScopeScenarios',
+    'InsufficientScenarioItem',
+    'SingleScenarioItem',
+    'SplitScenarioItem',
 ]
 
-class AnalysisScopeLabels(BaseConfigModel):
+
+class AnalysisScopeLabels(FrozenModel):
     """
     Labels for analysis scope summary statistics.
 
@@ -38,7 +42,7 @@ class AnalysisScopeLabels(BaseConfigModel):
     total_transactions: str = Field(description='Label for total transaction count')
 
 
-class SplitScenarioItem(BaseConfigModel):
+class SplitScenarioItem(FrozenModel):
     """
     Explanation for split analysis scenario.
 
@@ -54,12 +58,12 @@ class SplitScenarioItem(BaseConfigModel):
         description: Multi-line explanation including year range and rationale
     """
 
-    description: FormatStr[P.ScopeSplitScenario] = (
-        Field(description='Explanation of split scope strategy with year placeholders')
+    description: FormatStr[P.ScopeSplitScenario] = Field(
+        description='Explanation of split scope strategy with year placeholders'
     )
 
 
-class InsufficientScenarioItem(BaseConfigModel):
+class InsufficientScenarioItem(FrozenModel):
     """
     Explanation for insufficient current-year data scenario.
 
@@ -78,7 +82,7 @@ class InsufficientScenarioItem(BaseConfigModel):
     )
 
 
-class SingleScenarioItem(BaseConfigModel):
+class SingleScenarioItem(FrozenModel):
     """
     Explanation for single-year analysis scenario.
 
@@ -97,7 +101,7 @@ class SingleScenarioItem(BaseConfigModel):
     )
 
 
-class AnalysisScopeScenarios(BaseConfigModel):
+class AnalysisScopeScenarios(FrozenModel):
     """
     Collection of all analysis scope scenario explanations.
 
@@ -123,7 +127,7 @@ class AnalysisScopeScenarios(BaseConfigModel):
     )
 
 
-class AnalysisScope(BaseConfigModel):
+class AnalysisScope(FrozenModel):
     """
     Complete analysis scope section configuration.
 

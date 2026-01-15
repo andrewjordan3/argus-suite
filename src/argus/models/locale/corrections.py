@@ -12,7 +12,7 @@ determined based on a specified FDR threshold.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'MultipleTestingCorrection',
@@ -20,7 +20,8 @@ __all__: list[str] = [
     'MultipleTestingCorrectionTableHeaders',
 ]
 
-class MultipleTestingCorrectionTableHeaders(BaseConfigModel):
+
+class MultipleTestingCorrectionTableHeaders(FrozenModel):
     """
     Column headers for the multiple testing correction table.
 
@@ -40,7 +41,7 @@ class MultipleTestingCorrectionTableHeaders(BaseConfigModel):
     significant: str = Field(description='Column header for significance determination')
 
 
-class MultipleTestingCorrectionSignificanceMarkers(BaseConfigModel):
+class MultipleTestingCorrectionSignificanceMarkers(FrozenModel):
     """
     Text markers for significance determination.
 
@@ -60,7 +61,7 @@ class MultipleTestingCorrectionSignificanceMarkers(BaseConfigModel):
     )
 
 
-class MultipleTestingCorrection(BaseConfigModel):
+class MultipleTestingCorrection(FrozenModel):
     """
     Complete multiple testing correction section configuration.
 

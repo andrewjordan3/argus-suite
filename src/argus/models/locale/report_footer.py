@@ -11,7 +11,7 @@ a Pydantic model to ensure data integrity and consistency.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, FormatStrList, P
+from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
 
 __all__: list[str] = [
     'ReportFooter',
@@ -25,7 +25,7 @@ __all__: list[str] = [
 ]
 
 
-class ReportFooterDataCoverage(BaseConfigModel):
+class ReportFooterDataCoverage(FrozenModel):
     """
     Data coverage statistics for footer.
 
@@ -42,7 +42,7 @@ class ReportFooterDataCoverage(BaseConfigModel):
     )
 
 
-class ReportFooterStatisticalRigor(BaseConfigModel):
+class ReportFooterStatisticalRigor(FrozenModel):
     """
     Statistical rigor summary for footer.
 
@@ -59,7 +59,7 @@ class ReportFooterStatisticalRigor(BaseConfigModel):
     )
 
 
-class ReportFooterTestSummaryHeaders(BaseConfigModel):
+class ReportFooterTestSummaryHeaders(FrozenModel):
     """
     Column headers for test summary table in footer.
 
@@ -76,7 +76,7 @@ class ReportFooterTestSummaryHeaders(BaseConfigModel):
     significant: str
 
 
-class ReportFooterTestSummary(BaseConfigModel):
+class ReportFooterTestSummary(FrozenModel):
     """
     Test summary table configuration for footer.
 
@@ -91,7 +91,7 @@ class ReportFooterTestSummary(BaseConfigModel):
     headers: ReportFooterTestSummaryHeaders
 
 
-class ReportFooterReportMetadata(BaseConfigModel):
+class ReportFooterReportMetadata(FrozenModel):
     """
     Report metadata for footer.
 
@@ -108,7 +108,7 @@ class ReportFooterReportMetadata(BaseConfigModel):
     )
 
 
-class ReportFooterDisclaimer(BaseConfigModel):
+class ReportFooterDisclaimer(FrozenModel):
     """
     Important disclaimer for footer.
 
@@ -123,7 +123,7 @@ class ReportFooterDisclaimer(BaseConfigModel):
     paragraphs: list[str] = Field(description='list of disclaimer paragraphs')
 
 
-class ReportFooterClosing(BaseConfigModel):
+class ReportFooterClosing(FrozenModel):
     """
     Closing text for report footer.
 
@@ -140,7 +140,7 @@ class ReportFooterClosing(BaseConfigModel):
     )
 
 
-class ReportFooter(BaseConfigModel):
+class ReportFooter(FrozenModel):
     """
     Complete report footer configuration.
 

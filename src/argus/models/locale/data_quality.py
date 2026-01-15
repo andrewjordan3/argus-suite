@@ -11,7 +11,7 @@ structured reports on data preparation and quality assessment.
 
 from pydantic import Field
 
-from argus.models.common import BaseConfigModel, FormatStr, P
+from argus.models.common import FormatStr, FrozenModel, P
 
 __all__: list[str] = [
     'DataPreparation',
@@ -25,7 +25,7 @@ __all__: list[str] = [
 ]
 
 
-class DataPreparationLabels(BaseConfigModel):
+class DataPreparationLabels(FrozenModel):
     """
     Labels for data preparation statistics.
 
@@ -52,7 +52,7 @@ class DataPreparationLabels(BaseConfigModel):
     retention_rate: str = Field(description='Label for data retention percentage')
 
 
-class DataPreparationMessages(BaseConfigModel):
+class DataPreparationMessages(FrozenModel):
     """
     Template messages for data preparation reporting.
 
@@ -71,7 +71,7 @@ class DataPreparationMessages(BaseConfigModel):
     )
 
 
-class DataPreparation(BaseConfigModel):
+class DataPreparation(FrozenModel):
     """
     Complete data preparation section configuration.
 
@@ -89,7 +89,7 @@ class DataPreparation(BaseConfigModel):
     messages: DataPreparationMessages
 
 
-class DataQualitySubsections(BaseConfigModel):
+class DataQualitySubsections(FrozenModel):
     """
     Subsection headers within data quality assessment.
 
@@ -110,7 +110,7 @@ class DataQualitySubsections(BaseConfigModel):
     outliers: str = Field(description='Subsection header for outlier detection results')
 
 
-class DataQualityLabels(BaseConfigModel):
+class DataQualityLabels(FrozenModel):
     """
     Labels for data quality summary statistics.
 
@@ -129,7 +129,7 @@ class DataQualityLabels(BaseConfigModel):
     )
 
 
-class DataQualityMessages(BaseConfigModel):
+class DataQualityMessages(FrozenModel):
     """
     Message templates for reporting data quality issues.
 
@@ -157,7 +157,7 @@ class DataQualityMessages(BaseConfigModel):
     )
 
 
-class DataQualityAssessments(BaseConfigModel):
+class DataQualityAssessments(FrozenModel):
     """
     Overall data quality assessment messages.
 
@@ -181,7 +181,7 @@ class DataQualityAssessments(BaseConfigModel):
     )
 
 
-class DataQuality(BaseConfigModel):
+class DataQuality(FrozenModel):
     """
     Complete data quality assessment section configuration.
 

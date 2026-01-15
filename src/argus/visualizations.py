@@ -5,16 +5,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
+import matplotlib.container as mcontainer
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Rectangle, Wedge
+from matplotlib.text import Text
+from numpy.typing import NDArray
 
-from argus.models import DriverRiskProfile, StatisticalTest
+from argus.models.analysis import DriverRiskProfile, StatisticalTest
 from argus.utils import AnalysisContext
 
 # Set up a logger for this module
@@ -39,10 +42,7 @@ class ForensicVisualizer:
         'background': '#F5F5F5',  # Light gray background
     }
 
-    def __init__(
-        self,
-        context: AnalysisContext
-    ) -> None:
+    def __init__(self, context: AnalysisContext) -> None:
         """
         Initialize the visualizer.
 
@@ -352,13 +352,20 @@ class ForensicVisualizer:
         ]
 
         # Create pie chart
-        wedges, _, autotexts = ax.pie(
+        pie_responses: (
+            tuple[list[Wedge], list[Text]] | tuple[list[Wedge], list[Text], list[Text]]
+        )
+        pie_responses = ax.pie(
             plot_data,
-            labels=plot_data.index,
+            labels=[str(value) for value in plot_data.index],
             autopct='%1.1f%%',
             startangle=90,
             colors=pie_colors,
             wedgeprops={'edgecolor': 'white', 'linewidth': 1},
+        )
+
+        autotexts: list[Text] = (
+            pie_responses[1] if len(pie_responses) == 2 else pie_responses[2]
         )
 
         plt.setp(autotexts, size=8, weight='bold', color='white')
@@ -389,7 +396,7 @@ class ForensicVisualizer:
         # Sort by month
         target_data: pd.DataFrame = target_data.sort_values('month')
 
-        bars: plt.BarContainer = ax.bar(
+        bars: mcontainer.BarContainer = ax.bar(
             target_data['month_str'],
             target_data['total_cost'],
             color=self.COLORS['target'],
@@ -412,25 +419,27 @@ class ForensicVisualizer:
         ax.yaxis.set_major_formatter(formatter)
 
         # Add value labels for high-value months
-        max_height = target_data['total_cost'].max()
-        threshold = max_height * 0.8
+        max_height: float = target_data['total_cost'].max()
+        threshold: float = max_height * 0.8
 
         # Add value labels for high-value months
         if len(target_data) > 0:
             max_height = target_data['total_cost'].max()
             threshold = max_height * 0.8
 
-            for bar, (_, _) in zip(bars, target_data.iterrows()):
-                height = bar.get_height()
-                if height > threshold:
-                    ax.text(
-                        bar.get_x() + bar.get_width() / 2.0,
-                        height,
-                        f'${height:,.0f}',
-                        ha='center',
-                        va='bottom',
-                        fontsize=9,
-                    )
+            for bar_tup in zip(bars, target_data.iterrows(), strict=False):  # pyright: ignore[reportUnknownVariableType]
+                if isinstance(bar_tup[0], Rectangle):
+                    bar: Rectangle = bar_tup[0]
+                    height: float = bar.get_height()
+                    if height > threshold:
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2.0,
+                            height,
+                            f'${height:,.0f}',
+                            ha='center',
+                            va='bottom',
+                            fontsize=9,
+                        )
 
     def _plot_weekly_spend(self, ax: Axes, weekly_stats: pd.DataFrame) -> None:
         """
@@ -518,8 +527,12 @@ class ForensicVisualizer:
         # 3) Plot primitives
         # -------------------------------
         x_positions: NDArray[np.int64] = np.arange(len(data_window))  # 0..N-1
-        y_weekly: NDArray[np.float64] = data_window['total_cost'].to_numpy(dtype=np.float64)
-        y_trend: NDArray[np.float64] = data_window['rolling_4wk_mean'].to_numpy(dtype=np.float64)
+        y_weekly: NDArray[np.float64] = data_window['total_cost'].to_numpy(
+            dtype=np.float64
+        )
+        y_trend: NDArray[np.float64] = data_window['rolling_4wk_mean'].to_numpy(
+            dtype=np.float64
+        )
 
         color_week: str = self.COLORS.get(
             'target', '#E53935'
@@ -572,7 +585,9 @@ class ForensicVisualizer:
             tick_positions: NDArray[np.int64] = np.unique(
                 np.linspace(0, n_points - 1, num=desired_ticks, dtype=int)
             )
-            tick_labels: list[str] = data_window.iloc[tick_positions]['week_str'].tolist()
+            tick_labels: list[str] = data_window.iloc[tick_positions][
+                'week_str'
+            ].tolist()
             ax.set_xticks(tick_positions)
             ax.set_xticklabels(tick_labels, rotation=45, ha='right', fontsize=9)
         else:
@@ -589,7 +604,9 @@ class ForensicVisualizer:
             threshold: float = max_height * 0.8
 
             # Only annotate points above the threshold; nudge labels slightly upward
-            for xi, yi, _ in zip(x_positions, y_weekly, data_window['week_str'], strict=False):
+            for xi, yi, _ in zip(
+                x_positions, y_weekly, data_window['week_str'], strict=False
+            ):
                 if yi > threshold:
                     ax.text(
                         xi,
@@ -622,7 +639,7 @@ class ForensicVisualizer:
         """Plot horizontal bar chart of top high-risk drivers."""
         top_drivers: pd.DataFrame = driver_risk_scores.head(5)
 
-        bars: plt.BarContainer = ax.barh(
+        bars: mcontainer.BarContainer = ax.barh(
             range(len(top_drivers)),
             top_drivers['risk_score'].to_numpy(),
             color=self.COLORS['warning'],
@@ -639,7 +656,7 @@ class ForensicVisualizer:
         ax.set_xlim(0, 100)
 
         # Add value labels
-        for i, (_, score) in enumerate(
+        for i, (_, score) in enumerate(  # pyright: ignore[reportUnknownVariableType]
             zip(bars, top_drivers['risk_score'].to_numpy(), strict=False)
         ):
             ax.text(score + 1, i, f'{score:.1f}', va='center', fontsize=9)
@@ -672,7 +689,7 @@ class ForensicVisualizer:
             else:
                 colors.append(self.COLORS['primary'])  # Blue for normal
 
-        bars: plt.BarContainer = ax.barh(
+        bars: mcontainer.BarContainer = ax.barh(
             range(len(top_drivers)),
             top_drivers['total_volume'].to_numpy(),
             color=colors,
@@ -688,12 +705,12 @@ class ForensicVisualizer:
         ax.invert_yaxis()
 
         # Add value labels with z-score
-        for i, (_, volume, z_score) in enumerate(
+        for i, (_, volume, z_score) in enumerate(  # pyright: ignore[reportUnknownVariableType]
             zip(
                 bars,
                 top_drivers['total_volume'].values,
                 top_drivers['volume_z_score'].values,
-                strict=False
+                strict=False,
             )
         ):
             # Volume label
@@ -707,7 +724,7 @@ class ForensicVisualizer:
             )
 
             # Z-score label (if significant)
-            if z_score > 1.5:
+            if z_score > 1.5:  # noqa: PLR2004
                 ax.text(
                     volume * 0.98,
                     i,
