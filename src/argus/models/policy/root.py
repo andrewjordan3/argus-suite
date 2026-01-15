@@ -46,6 +46,9 @@ class PolicyConfig(RootConfigModel):
         geographic_analysis: Thresholds for detecting suspicious station-level patterns.
     """
 
+    # Location of the default Policy YAML file
+    _default_resource_path = ('defaults', 'policy.yaml')
+
     # -------------------------------------------------------------------------
     # Statistical Framework
     # -------------------------------------------------------------------------

@@ -106,6 +106,9 @@ class ReportConfig(RootConfigModel):
         report_footer: Report footer content
     """
 
+    # Location of the default Locale YAML file (English)
+    _default_resource_path = ('locales', 'english.yaml')
+
     # Section 1: Locale settings (formatting preferences)
     locale: LocaleSettings = Field(
         description='Locale-specific formatting for numbers, dates, and currency'

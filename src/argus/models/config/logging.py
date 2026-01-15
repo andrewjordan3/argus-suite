@@ -3,36 +3,57 @@
 Logging configuration module for the ARGUS system.
 """
 
+from enum import IntEnum
 from pathlib import Path
-from typing import Literal, Self
+from typing import Self
 
 from pydantic import Field, field_validator, model_validator
 
 from argus.models.common import FrozenModel
 
-__all__: list[str] = ['LoggingConfig']
+__all__: list[str] = [
+    'LogLevel',
+    'LoggingConfig',
+]
+
 
 # =============================================================================
 # LOGGING TYPE DEFINITIONS
 # =============================================================================
 
-# Valid logging level names recognized by Python's logging module.
-# Using Literal rather than an Enum because these map directly to stdlib names.
-LogLevelName = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
-# Numeric equivalents of log level names for validation purposes.
-# These are the only valid integer values accepted when specifying log levels.
-LOG_LEVEL_VALUES: frozenset[int] = frozenset({10, 20, 30, 40, 50})
+class LogLevel(IntEnum):
+    """
+    Standard Python logging levels as an enumeration.
 
-# Mapping from level name to numeric value, avoiding import of logging module
-# in the model layer to maintain separation of concerns.
-LOG_LEVEL_NAME_TO_INT: dict[LogLevelName, int] = {
-    'DEBUG': 10,
-    'INFO': 20,
-    'WARNING': 30,
-    'ERROR': 40,
-    'CRITICAL': 50,
-}
+    Using IntEnum provides several benefits:
+        - Single source of truth for level names and numeric values
+        - Values match Python's logging module exactly (10, 20, 30, 40, 50)
+        - Built-in ordering: LogLevel.DEBUG < LogLevel.INFO
+        - Pydantic accepts both string names ('DEBUG') and integers (10)
+        - Iterable: for level in LogLevel
+
+    The numeric values are intentionally spaced by 10 to match stdlib logging,
+    which allows custom intermediate levels if ever needed (though not
+    recommended for ARGUS).
+
+    Example:
+        >>> LogLevel.DEBUG
+        <LogLevel.DEBUG: 10>
+        >>> LogLevel.DEBUG < LogLevel.INFO
+        True
+        >>> LogLevel['WARNING']
+        <LogLevel.WARNING: 30>
+        >>> LogLevel(40)
+        <LogLevel.ERROR: 40>
+    """
+
+    DEBUG = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
+
 
 # =============================================================================
 # LOGGING CONFIGURATION
@@ -53,15 +74,26 @@ class LoggingConfig(FrozenModel):
         Parent directories are created automatically by the logging setup.
 
     Level Specification:
-        Levels can be specified as names ('DEBUG', 'INFO', etc.) or as
-        their numeric equivalents (10, 20, etc.). String names are
-        preferred for readability in YAML configuration files.
+        Levels can be specified as enum members, string names ('DEBUG', 'INFO',
+        etc.), or numeric equivalents (10, 20, etc.). String names are
+        preferred for readability in YAML configuration files. All formats
+        are accepted and normalized to LogLevel enum members.
 
     Attributes:
         file_path: Path to log file. None disables file logging.
             Extension .log is appended automatically if missing.
         console_level: Minimum log level for console (stderr) output.
-        file_level: Minimum log level for file output. Defaults to DEBUG if file_path is provided.
+        file_level: Minimum log level for file output. Defaults to DEBUG
+            if file_path is provided.
+
+    Example:
+        >>> config = LoggingConfig(
+        ...     console_level='INFO',  # String name works
+        ...     file_path='logs/argus.log',
+        ...     file_level=LogLevel.DEBUG,  # Enum member works
+        ... )
+        >>> config.console_level
+        <LogLevel.INFO: 20>
     """
 
     file_path: Path | None = Field(
@@ -69,12 +101,12 @@ class LoggingConfig(FrozenModel):
         description='Log file path (.log extension auto-added). None disables file logging.',
     )
 
-    console_level: LogLevelName | int = Field(
-        default='INFO',
-        description="Console log level: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', or int",
+    console_level: LogLevel = Field(
+        default=LogLevel.INFO,
+        description='Console log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL',
     )
 
-    file_level: LogLevelName | int | None = Field(
+    file_level: LogLevel | None = Field(
         default=None,
         description='File log level. Defaults to DEBUG when file_path is provided.',
     )
@@ -94,79 +126,65 @@ class LoggingConfig(FrozenModel):
         if path_value is None:
             return None
 
-        # Convert to Path immediately to leverage safe filesystem methods
         path: Path = Path(path_value)
-
-        # Tilde characters (~) must be expanded to the full user home
-        # directory to ensure the path is valid for filesystem operations
         path = path.expanduser()
 
-        # The .log extension is enforced for consistency.
-        # Logic appends the extension if missing, preserving existing
-        # extensions (e.g., 'data.txt' becomes 'data.txt.log')
         if path.suffix.lower() != '.log':
             path = path.with_name(f'{path.name}.log')
 
         if not path.is_absolute():
-            # Convert relative paths to absolute paths based on
-            # the current working directory
             path = Path.cwd() / path
 
-        # Resolution anchors the path to the filesystem immediately
-        # to prevent ambiguity if the working directory changes later
         return path.resolve(strict=False)
 
     @field_validator('console_level', 'file_level', mode='before')
     @classmethod
-    def normalize_log_level_case(
+    def normalize_log_level(
         cls,
-        level_value: str | int | None,
-    ) -> str | int | None:
+        level_value: str | int | LogLevel | None,
+    ) -> LogLevel | None:
         """
-        Normalize string log levels to uppercase for case-insensitive config.
+        Normalize log level input to LogLevel enum member.
 
-        Allows users to specify 'debug', 'Debug', or 'DEBUG' in YAML and have
-        all variants work correctly.
+        Accepts multiple input formats for YAML/config flexibility:
+            - String names: 'DEBUG', 'debug', 'Debug' (case-insensitive)
+            - Integer values: 10, 20, 30, 40, 50
+            - LogLevel members: LogLevel.DEBUG
+            - None (for optional file_level)
 
         Args:
-            level_value: Log level as string, integer, or None.
+            level_value: Log level in any accepted format.
 
         Returns:
-            Uppercase string if input was string, otherwise unchanged.
-        """
-        if isinstance(level_value, str):
-            return level_value.upper()
-        return level_value
-
-    @field_validator('console_level', 'file_level', mode='after')
-    @classmethod
-    def validate_numeric_log_level(
-        cls,
-        level_value: LogLevelName | int | None,
-    ) -> LogLevelName | int | None:
-        """
-        Validate numeric log levels are standard Python logging values.
-
-        Args:
-            level_value: Log level as name string, integer, or None.
-
-        Returns:
-            The validated log level.
+            LogLevel enum member, or None if input was None.
 
         Raises:
-            ValueError: If numeric level is not a standard logging value.
+            ValueError: If string name or integer value is not valid.
         """
-        if level_value is None or isinstance(level_value, str):
+        if level_value is None:
+            return None
+
+        if isinstance(level_value, LogLevel):
             return level_value
 
-        # Integer level must be a standard Python logging level
-        if level_value not in LOG_LEVEL_VALUES:
-            raise ValueError(
-                f'Numeric log level must be one of {sorted(LOG_LEVEL_VALUES)}, '
-                f'got: {level_value}'
-            )
+        if isinstance(level_value, str):
+            normalized_name: str = level_value.upper()
+            try:
+                return LogLevel[normalized_name]
+            except KeyError:
+                valid_names: list[str] = [level.name for level in LogLevel]
+                raise ValueError(
+                    f"Invalid log level name '{level_value}'. "
+                    f'Valid names: {valid_names}'
+                ) from None
 
-        return level_value
+        try:
+            return LogLevel(level_value)
+        except ValueError:
+            valid_values: list[int] = [level.value for level in LogLevel]
+            raise ValueError(
+                f'Invalid log level value {level_value}. Valid values: {valid_values}'
+            ) from None
 
     @model_validator(mode='after')
     def ensure_file_logging_configuration_consistency(self) -> Self:
@@ -187,8 +205,8 @@ class LoggingConfig(FrozenModel):
         has_file_level: bool = self.file_level is not None
 
         if has_file_path and not has_file_level:
-            # Sensible default: capture everything to file for debugging
-            self.file_level = 'DEBUG'
+            # Use object.__setattr__ because model is frozen
+            object.__setattr__(self, 'file_level', LogLevel.DEBUG)
 
         if has_file_level and not has_file_path:
             raise ValueError(
@@ -197,27 +215,3 @@ class LoggingConfig(FrozenModel):
             )
 
         return self
-
-    def get_console_level_int(self) -> int:
-        """
-        Convert console_level to numeric value for logging module.
-
-        Returns:
-            Integer logging level (10=DEBUG through 50=CRITICAL).
-        """
-        if isinstance(self.console_level, int):
-            return self.console_level
-        return LOG_LEVEL_NAME_TO_INT[self.console_level]
-
-    def get_file_level_int(self) -> int | None:
-        """
-        Convert file_level to numeric value for logging module.
-
-        Returns:
-            Integer logging level, or None if file logging is disabled.
-        """
-        if self.file_level is None:
-            return None
-        if isinstance(self.file_level, int):
-            return self.file_level
-        return LOG_LEVEL_NAME_TO_INT[self.file_level]

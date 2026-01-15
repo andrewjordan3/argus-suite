@@ -2,14 +2,24 @@
 """
 Shared Pydantic Base Models for ARGUS.
 
-This module provides a two-tier base class hierarchy for ARGUS configuration
-and locale models:
+This module provides a two-tier base class hierarchy used throughout ARGUS
+for both configuration/locale models and statistical analysis result models:
 
     FrozenModel (base)
         │
         │   - Immutable (frozen=True)
         │   - Strict validation (extra='forbid')
+        │   - Default validation at class definition time
         │   - Compact __repr__ for debugging
+        │
+        ├──▶ Configuration Models
+        │       - Nested settings models (ThresholdSettings, AnalysisSettings)
+        │       - Any model that doesn't need YAML loading
+        │
+        ├──▶ Statistical Analysis Models
+        │       - Test results (StatisticalTest, ChangePointResult)
+        │       - Risk profiles (DriverRiskProfile, TemporalRiskProfile)
+        │       - Any model storing computational outputs
         │
         └──▶ RootConfigModel (extends FrozenModel)
                 │
@@ -17,28 +27,46 @@ and locale models:
                 │   - YAML serialization (to_yaml_string)
                 │   - Default resource path configuration
                 │
-                └──▶ Your 3 root config models
+                └──▶ Root configuration models only
 
-Usage Pattern:
-    - Nested/child models: inherit from FrozenModel
-    - Root models (representing entire YAML files): inherit from RootConfigModel
+Usage Patterns:
 
-Example:
-    >>> # Nested model - just needs validation and immutability
-    >>> class ThresholdSettings(FrozenModel):
-    ...     zscore: float
-    ...     minimum_count: int
-    ...
-    >>> # Root model - represents an entire YAML file
-    >>> class PolicyConfig(RootConfigModel):
-    ...     _default_resource_path: ClassVar[tuple[str, ...]] = (
-    ...         'defaults', 'policy.yaml'
-    ...     )
-    ...     thresholds: ThresholdSettings  # nested model
-    ...     enabled: bool
-    ...
-    >>> # Load the root model (nested models are validated automatically)
-    >>> policy = PolicyConfig.from_yaml('~/.argus/policy.yaml')
+    Configuration Models:
+        - Nested/child config models: inherit from FrozenModel
+        - Root models (entire YAML files): inherit from RootConfigModel
+
+    Statistical Analysis Models:
+        - All analysis result models: inherit from FrozenModel
+        - Override __repr__ for domain-specific debugging output
+        - Add validators for mathematical constraints (e.g., p-values ∈ [0,1])
+
+Examples:
+
+    Configuration Model:
+        >>> class ThresholdSettings(FrozenModel):
+        ...     zscore: float
+        ...     minimum_count: int
+
+    Statistical Result Model:
+        >>> class StatisticalTest(FrozenModel):
+        ...     name: str
+        ...     p_value: float = Field(default=math.nan)
+        ...     is_significant: bool = False
+        ...
+        ...     @field_validator('p_value')
+        ...     @classmethod
+        ...     def validate_probability(cls, v: float) -> float:
+        ...         if not math.isnan(v) and not (0.0 <= v <= 1.0):
+        ...             raise ValueError(f'p-value must be in [0,1], got {v}')
+        ...         return v
+
+    Root Configuration Model:
+        >>> class PolicyConfig(RootConfigModel):
+        ...     _default_resource_path: ClassVar[tuple[str, ...]] = (
+        ...         'defaults', 'policy.yaml'
+        ...     )
+        ...     thresholds: ThresholdSettings
+        ...     enabled: bool
 """
 
 import logging
@@ -71,8 +99,8 @@ _REPR_MAX_STRING_LENGTH: int = 50
 # =============================================================================
 # Base Model: FrozenModel
 # =============================================================================
-# Use this for nested/child models that are part of a larger configuration.
-# Provides immutability, strict validation, and compact repr—nothing more.
+# Universal base for all ARGUS data models requiring immutability and strict
+# validation. Used for both configuration models and statistical result models.
 # =============================================================================
 
 
@@ -80,39 +108,71 @@ class FrozenModel(BaseModel):
     """
     Base class for immutable, strictly-validated Pydantic models.
 
-    Use this as the base class for nested configuration models—the building
-    blocks that compose larger root configurations. This class provides the
-    core guarantees all ARGUS config models need, without YAML loading logic
-    that only makes sense for root-level models.
+    This is the foundational base class for all ARGUS models that hold data
+    which should not change after creation. It serves two primary use cases:
+
+        1. Configuration Models: Nested settings that compose larger configs
+        2. Statistical Analysis Models: Results from computations that should
+           be treated as immutable records
 
     Guarantees:
-        - Immutable: Instances cannot be modified after creation (frozen=True)
-        - Strict: Unknown fields raise ValidationError (extra='forbid')
+        - Immutable: Instances cannot be modified after creation (frozen=True).
+          For statistical results, this ensures computational outputs remain
+          intact. To update values (e.g., after FDR correction), create a
+          new instance.
+        - Strict: Unknown fields raise ValidationError (extra='forbid').
+          Catches typos and schema drift early.
         - Validated: Default values are checked at class definition time
+          (validate_default=True). Invalid defaults fail fast during development.
 
-    When to Use:
-        - Nested models that are fields within larger models
+    When to Use FrozenModel:
+        - Nested configuration models (fields within larger config structures)
+        - Statistical test results (p-values, effect sizes, confidence intervals)
+        - Risk assessment profiles (driver scores, temporal patterns)
+        - Any computational output that should be immutable
         - Any model that doesn't represent an entire YAML file
-        - Models that will be instantiated by Pydantic during parent validation
 
     When to Use RootConfigModel Instead:
         - Models representing entire YAML configuration files
         - Models that need from_yaml(), from_default(), or to_yaml_string()
 
-    Example:
-        >>> class DatabaseSettings(FrozenModel):
-        ...     host: str
-        ...     port: int = 5432
-        ...     max_connections: int = 10
-        ...
-        >>> class ServerSettings(FrozenModel):
-        ...     bind_address: str = '0.0.0.0'
-        ...     workers: int = 4
-        ...
-        >>> # These are used as fields in a root model:
-        >>> class AppConfig(RootConfigModel):
-        ...     database: DatabaseSettings
-        ...     server: ServerSettings
+    Customization:
+        Subclasses commonly add:
+        - Field validators for domain constraints (e.g., probabilities ∈ [0,1])
+        - Model validators for cross-field consistency checks
+        - Custom __repr__ for domain-specific debugging output
+
+    Examples:
+        Configuration model (nested settings):
+            >>> class DatabaseSettings(FrozenModel):
+            ...     host: str
+            ...     port: int = 5432
+            ...     max_connections: int = 10
+
+        Statistical result model (with validation):
+            >>> class StatisticalTest(FrozenModel):
+            ...     name: str
+            ...     p_value: float = Field(default=math.nan)
+            ...     q_value: float = Field(default=math.nan)
+            ...     is_significant: bool = False
+            ...
+            ...     @field_validator('p_value', 'q_value')
+            ...     @classmethod
+            ...     def validate_probability(cls, v: float) -> float:
+            ...         if not math.isnan(v) and not (0.0 <= v <= 1.0):
+            ...             raise ValueError(f'Probability must be in [0,1], got {v}')
+            ...         return v
+            ...
+            ...     def __repr__(self) -> str:
+            ...         sig = '✓' if self.is_significant else '✗'
+            ...         return f"StatisticalTest('{self.name}', p={self.p_value:.4f}, {sig})"
+
+        Risk profile model:
+            >>> class DriverRiskProfile(FrozenModel):
+            ...     driver_name: str
+            ...     risk_score: float = Field(ge=0.0, le=100.0)
+            ...     transaction_count: int = Field(ge=0)
+            ...     no_eld_rate: float = Field(ge=0.0, le=1.0)
     """
 
     model_config = ConfigDict(
@@ -169,6 +229,7 @@ class FrozenModel(BaseModel):
 # =============================================================================
 # Use this for top-level models that represent entire YAML configuration files.
 # Adds YAML loading and serialization capabilities to FrozenModel.
+# NOT intended for statistical analysis models (those use FrozenModel directly).
 # =============================================================================
 
 

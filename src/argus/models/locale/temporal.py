@@ -1,4 +1,4 @@
-# argus/schemas/temporal.py
+# argus/models/locale/temporal.py
 """
 ============================================================================
 TEMPORAL ANALYSIS
@@ -11,7 +11,9 @@ statistical techniques to detect fraud emergence, pattern changes, and temporal 
 
 from pydantic import Field
 
-from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
+from argus.models.common import FrozenModel
+from argus.models.locale.placeholder_registry import P
+from argus.models.locale.placeholder_validators import FormatStr, FormatStrList
 
 __all__: list[str] = [
     'TemporalAnalysis',

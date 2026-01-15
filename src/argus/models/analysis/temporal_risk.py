@@ -1,443 +1,979 @@
 # argus/models/analysis/temporal_risk.py
 """
-Temporal Risk Profile Data Model
-This module defines the data model for temporal risk profiles used in ARGUS.
+Temporal Risk Profile Model for ARGUS Analysis Pipeline.
+
+This module defines models for temporal risk analysis results, capturing how
+an entity's (driver or vehicle) behavior has changed over time. The analysis
+detects change points, behavioral trends, fraud pattern signatures, and
+anomalies in time-series data.
+
+Design Philosophy:
+    This model follows the ARGUS principle of separating data from policy.
+    It contains only raw statistical outputs from temporal analysis—no methods
+    that depend on configuration thresholds, locale settings, or presentation
+    formatting. Interpretation of these values belongs in service/processor
+    layers that receive both this model and the relevant configuration.
+
+    Note: Some nested models contain fields (like `risk_level` in
+    AutocorrelationResult) that represent policy interpretations computed
+    by the upstream pipeline. These are preserved for compatibility but
+    ideally should be computed in the service layer during report generation.
+
+Immutability:
+    All model instances are frozen after creation. Temporal analysis results
+    represent a point-in-time computation and should not be modified.
+
+Model Hierarchy:
+    TemporalRiskProfile (root)
+    ├── MonthOverMonthAnalysis      - Volatility and spike detection
+    ├── dict[str, RollingAnomalyResult]  - Per-metric outlier detection
+    ├── dict[str, AutocorrelationResult] - Per-metric persistence patterns
+    ├── FraudPatternFlags           - Named fraud pattern indicators
+    └── TemporalRiskSummary         - Aggregate statistics
+
+Usage:
+    >>> from argus.models.analysis.temporal_risk import (
+    ...     TemporalRiskProfile,
+    ...     FraudPatternFlags,
+    ...     MonthOverMonthAnalysis,
+    ... )
+    >>>
+    >>> profile = TemporalRiskProfile(
+    ...     display_id='John Smith',
+    ...     entity_type='Driver',
+    ...     risk_score=78,
+    ...     months_active=8,
+    ...     total_transactions=156,
+    ...     change_points={'no_eld_rate': '2024-06'},
+    ...     fraud_patterns=FraudPatternFlags(weekend_warrior=True),
+    ...     month_over_month=MonthOverMonthAnalysis(
+    ...         volatility_score=1.45,
+    ...         sudden_spikes=['no_eld_rate'],
+    ...     ),
+    ... )
+
+See Also:
+    - argus.models.analysis.driver_risk: Cross-sectional driver risk profiles
+    - argus.models.analysis.statistical_test: Individual statistical test results
+    - argus.services.temporal_analysis: Service that produces these results
 """
 
-from typing import Any, Literal
+import math
+import re
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field, field_validator, model_validator
 
-from argus.models.analysis.type_definitions import EntityType
-from argus.models.config import RiskCategory, RiskScoreThresholds
-from argus.utils import categorize_risk_score
+from argus.models.common.base import FrozenModel
+
+# -----------------------------------------------------------------------------
+# Type Definitions
+# -----------------------------------------------------------------------------
+# Defined locally to avoid cross-module dependencies. These types are specific
+# to temporal risk analysis and unlikely to be shared with other models.
+# -----------------------------------------------------------------------------
+# NOTE: This should be used only by the programmer and not meant for presentation.
+# It will probably be removed in future versions in favor of deriving labels
+# on-the-fly from locale configuration.
+EntityType = Literal['Driver', 'Vehicle']
+"""
+Type of entity being analyzed.
+
+Note:
+    This type is for internal programming use only and should not appear
+    in user-facing output. User-facing labels should be derived from locale
+    configuration in the presentation layer.
+"""
 
 __all__: list[str] = [
+    'AutocorrelationResult',
+    'EntityType',
+    'FraudPatternFlags',
+    'MonthOverMonthAnalysis',
+    'RollingAnomalyResult',
     'TemporalRiskProfile',
+    'TemporalRiskSummary',
 ]
 
-class TemporalRiskProfile(BaseModel):
-    """
-    Container for comprehensive temporal analysis results for a single entity (driver or vehicle).
 
-    This model stores detailed information about how an entity's behavior has changed
-    over time, including:
-    - Detected change points (single and multiple)
-    - Concerning trends and risk indicators
-    - Month-over-month volatility and spikes
-    - Rolling window anomalies
-    - Autocorrelation patterns (persistent behavior)
-    - Specific fraud pattern signatures
-    - Current state risk factors
-    - Period-to-period comparisons
+# -----------------------------------------------------------------------------
+# Validation Tolerances
+# -----------------------------------------------------------------------------
+# Module-level constants for validation tolerances. Centralizing these makes
+# the validation logic clearer and allows adjustment if needed.
+# -----------------------------------------------------------------------------
+
+# Absolute tolerance for correlation coefficient bounds.
+# Correlations must be in [-1.0, 1.0]; this handles floating-point errors.
+_CORRELATION_BOUND_TOLERANCE: float = 1e-9
+
+
+# Compiled Regex Patterns
+# -----------------------------------------------------------------------------
+# Pre-compiled patterns for validation. Compiling at module load time avoids
+# the overhead of recompilation on every validation call.
+# -----------------------------------------------------------------------------
+
+# Pattern for YYYY-MM month identifier format used in change point dates.
+# Examples: '2024-01', '2023-12'
+_MONTH_DATE_PATTERN: re.Pattern[str] = re.compile(r'^\d{4}-\d{2}$')
+
+# =============================================================================
+# Nested Models: Month-Over-Month Analysis
+# =============================================================================
+
+
+class MonthOverMonthAnalysis(FrozenModel):
+    """
+    Container for month-over-month volatility analysis results.
+
+    This model captures patterns in how metrics change from one month to
+    the next, identifying sudden spikes (large single-month jumps) and
+    gradual escalation (consistent upward trends over multiple months).
+
+    The volatility score quantifies overall month-to-month variability,
+    with higher values indicating more erratic behavior patterns.
 
     Attributes:
-        display_id: Human-readable identifier (driver name or VIN)
-        entity_type: Type of entity ('Driver' or 'Vehicle')
-        risk_score: Comprehensive temporal risk score (0-100 scale)
-        months_active: Number of months with transactions
-        total_transactions: Total number of transactions in the period
-        truck_description: Optional vehicle description
+        sudden_spikes: List of metric names that exhibited sudden month-to-month
+            spikes exceeding configured thresholds. Example: ['no_eld_rate']
+            indicates the no-ELD rate jumped significantly in a single month.
 
-        # Original temporal analysis fields
-        change_points: dictionary mapping metric names to single change point dates
-                      Example: {'no_eld_rate': '2024-06', 'transaction_volume': '2024-08'}
-        risk_indicators: list of all concerning trends and patterns detected
-                        Example: ['INCREASING no_eld_rate', 'SUDDEN SPIKE in transaction_volume']
-        segment_comparison: dictionary mapping metrics to first-half vs second-half comparison results
-                          Example: {'no_eld_rate': 'INCREASED (p=0.023, r=0.45)'}
+        gradual_escalation: List of metric names showing consistent upward
+            trends over multiple consecutive months. This pattern may indicate
+            a driver gradually testing boundaries rather than sudden fraud.
 
-        # Enhanced temporal analysis fields
-        multiple_change_points: dictionary mapping metrics to lists of ALL detected change points
-                               Example: {'no_eld_rate': ['2024-03', '2024-07', '2024-10']}
-        month_over_month: dictionary containing month-to-month volatility analysis
-                         Keys: 'sudden_spikes', 'gradual_escalation', 'volatility_score'
-        rolling_anomalies: dictionary mapping metrics to rolling window outlier detection results
-                          Example: {'no_eld_rate': {'outlier_months': ['2024-05'], 'max_z_score': 2.3}}
-        autocorrelation: dictionary mapping metrics to autocorrelation analysis
-                        Example: {'after_hours_rate': {'lag1_correlation': 0.78, 'risk_level': 'HIGH'}}
-        fraud_patterns: dictionary of specific fraud pattern flags
-                       Keys: 'weekend_warrior', 'pump_and_dump', 'creeping_charlie', 'seasonal_mismatch'
-        current_risk_factors: list of risk factors present in the most recent month
-                             Example: ['High No ELD Rate (45.2%)', 'High After Hours Rate (62.1%)']
-        summary: dictionary containing summary statistics for quick overview
-                Keys: 'total_risk_factors', 'total_change_points', 'has_fraud_patterns',
-                      'volatility_score', 'recent_behavior_score'
+        volatility_score: Aggregate measure of month-to-month variability
+            across all tracked metrics. Higher values indicate more erratic
+            behavior. Scale is implementation-dependent but typically
+            normalized where values > 1.0 indicate above-average volatility.
+
+    Example:
+        >>> analysis = MonthOverMonthAnalysis(
+        ...     sudden_spikes=['no_eld_rate', 'after_hours_rate'],
+        ...     gradual_escalation=['non_diesel_rate'],
+        ...     volatility_score=1.85,
+        ... )
     """
 
-    model_config = ConfigDict(extra='forbid')
+    sudden_spikes: list[str] = Field(
+        default_factory=list,
+        description='Metric names with sudden month-to-month spikes',
+    )
 
-    # Core identification fields
+    gradual_escalation: list[str] = Field(
+        default_factory=list,
+        description='Metric names showing gradual upward trends',
+    )
+
+    volatility_score: float = Field(
+        default=0.0,
+        description='Aggregate month-to-month variability measure',
+        ge=0.0,
+    )
+
+
+# =============================================================================
+# Nested Models: Rolling Anomaly Detection
+# =============================================================================
+
+
+class RollingAnomalyResult(FrozenModel):
+    """
+    Container for rolling window anomaly detection results for a single metric.
+
+    This model captures months where a metric's value was a statistical outlier
+    compared to the rolling historical window. Outliers are identified using
+    z-scores computed against the rolling mean and standard deviation.
+
+    Attributes:
+        outlier_months: List of month identifiers (YYYY-MM format) where the
+            metric value was flagged as an outlier. An empty list indicates
+            no anomalous months were detected for this metric.
+
+        max_z_score: The highest absolute z-score observed across all months
+            for this metric. Higher values indicate more extreme deviations
+            from the rolling baseline. Typical interpretation:
+            - |z| < 2.0: Within normal variation
+            - |z| >= 2.0: Unusual
+            - |z| >= 3.0: Highly anomalous
+
+        mean_z_score: Average absolute z-score across all months, indicating
+            the typical deviation level. Defaults to 0.0 if not computed.
+
+    Example:
+        >>> anomaly = RollingAnomalyResult(
+        ...     outlier_months=['2024-05', '2024-09'],
+        ...     max_z_score=3.42,
+        ...     mean_z_score=1.15,
+        ... )
+    """
+
+    outlier_months: list[str] = Field(
+        default_factory=list,
+        description='Month identifiers (YYYY-MM) flagged as outliers',
+    )
+
+    max_z_score: float = Field(
+        default=0.0,
+        description='Highest absolute z-score observed',
+    )
+
+    mean_z_score: float = Field(
+        default=0.0,
+        description='Average absolute z-score across all months',
+    )
+
+
+# =============================================================================
+# Nested Models: Autocorrelation Analysis
+# =============================================================================
+
+
+class AutocorrelationResult(FrozenModel):
+    """
+    Container for autocorrelation analysis results for a single metric.
+
+    Autocorrelation measures how strongly a metric's value in one month
+    correlates with its value in the previous month. High autocorrelation
+    indicates persistent patterns—if a driver has a high no-ELD rate one
+    month, they're likely to have a high rate the next month as well.
+
+    This persistence is important for risk assessment because it distinguishes
+    between one-time anomalies and sustained problematic behavior.
+
+    Attributes:
+        lag1_correlation: Pearson correlation coefficient between each month's
+            value and the previous month's value (lag-1 autocorrelation).
+            Values range from -1.0 to 1.0:
+            - Near 1.0: Strong positive persistence (high follows high)
+            - Near 0.0: No persistence (random month-to-month variation)
+            - Near -1.0: Alternating pattern (high follows low)
+
+        lag2_correlation: Optional lag-2 autocorrelation (correlation with
+            value from two months prior). Useful for detecting bi-monthly
+            patterns. Defaults to NaN if not computed.
+
+        persistence_ratio: Ratio of months where the metric remained elevated
+            after an initial spike. Values near 1.0 indicate the behavior
+            persists; values near 0.0 indicate it was transient.
+            Defaults to NaN if not computed.
+
+    Note:
+        The upstream pipeline may compute additional interpreted fields
+        (like 'risk_level') that are not stored here. Interpretation of
+        correlation values into risk categories should be performed in
+        the service layer using configuration-defined thresholds.
+
+    Example:
+        >>> autocorr = AutocorrelationResult(
+        ...     lag1_correlation=0.78,
+        ...     lag2_correlation=0.52,
+        ...     persistence_ratio=0.85,
+        ... )
+    """
+
+    lag1_correlation: float = Field(
+        default=math.nan,
+        description='Lag-1 autocorrelation coefficient (-1 to 1)',
+    )
+
+    lag2_correlation: float = Field(
+        default=math.nan,
+        description='Lag-2 autocorrelation coefficient (-1 to 1)',
+    )
+
+    persistence_ratio: float = Field(
+        default=math.nan,
+        description='Ratio of months behavior persisted after initial spike (0 to 1)',
+    )
+
+    @field_validator('lag1_correlation', 'lag2_correlation')
+    @classmethod
+    def validate_correlation_bounds(cls, correlation_value: float) -> float:
+        """
+        Validate that correlation coefficients are in valid range.
+
+        Pearson correlation coefficients must be in [-1.0, 1.0] by definition.
+        NaN is permitted for optional/uncomputed correlations.
+
+        Args:
+            correlation_value: The correlation coefficient to validate.
+
+        Returns:
+            The validated correlation value, unchanged.
+
+        Raises:
+            ValueError: If correlation is not NaN and not in [-1.0, 1.0].
+        """
+        if math.isnan(correlation_value):
+            return correlation_value
+
+        lower_valid: bool = correlation_value >= (-1.0 - _CORRELATION_BOUND_TOLERANCE)
+        upper_valid: bool = correlation_value <= (1.0 + _CORRELATION_BOUND_TOLERANCE)
+
+        if not (lower_valid and upper_valid):
+            raise ValueError(
+                f'Correlation coefficient must be in [-1.0, 1.0], '
+                f'got {correlation_value}.'
+            )
+
+        return correlation_value
+
+    @field_validator('persistence_ratio')
+    @classmethod
+    def validate_persistence_ratio_bounds(cls, ratio_value: float) -> float:
+        """
+        Validate that persistence ratio is a valid proportion.
+
+        Persistence ratio represents a proportion and must be in [0.0, 1.0].
+        NaN is permitted if not computed.
+
+        Args:
+            ratio_value: The persistence ratio to validate.
+
+        Returns:
+            The validated ratio value, unchanged.
+
+        Raises:
+            ValueError: If ratio is not NaN and not in [0.0, 1.0].
+        """
+        if math.isnan(ratio_value):
+            return ratio_value
+
+        if not (0.0 <= ratio_value <= 1.0):
+            raise ValueError(
+                f'Persistence ratio must be in [0.0, 1.0], got {ratio_value}.'
+            )
+
+        return ratio_value
+
+
+# =============================================================================
+# Nested Models: Fraud Pattern Detection
+# =============================================================================
+
+
+class FraudPatternFlags(FrozenModel):
+    """
+    Container for named fraud pattern detection flags.
+
+    Each flag indicates whether a specific, predefined fraud pattern signature
+    was detected in the entity's temporal behavior. These patterns are based
+    on domain expertise in fuel card fraud detection.
+
+    Pattern Descriptions:
+        weekend_warrior: Disproportionate transaction activity on weekends
+            compared to weekdays. May indicate personal use of fleet fuel
+            cards when business operations are reduced.
+
+        pump_and_dump: Pattern of high-volume transactions followed by
+            extended periods of inactivity. May indicate bulk fuel theft
+            or resale operations.
+
+        creeping_charlie: Gradual, incremental increases in suspicious
+            metrics over time, suggesting a driver testing boundaries
+            while avoiding detection thresholds.
+
+        seasonal_mismatch: Transaction patterns that don't align with
+            expected seasonal business cycles. For example, increased
+            fuel purchases during periods when fleet activity should
+            be reduced.
+
+    Note:
+        The detection algorithms and thresholds for these patterns are
+        defined in the analysis configuration. This model stores only
+        the boolean detection results, not the underlying evidence.
+
+    Attributes:
+        weekend_warrior: True if weekend concentration pattern detected.
+        pump_and_dump: True if bulk-then-idle pattern detected.
+        creeping_charlie: True if gradual escalation pattern detected.
+        seasonal_mismatch: True if seasonal anomaly pattern detected.
+
+    Example:
+        >>> flags = FraudPatternFlags(
+        ...     weekend_warrior=True,
+        ...     creeping_charlie=True,
+        ... )
+        >>> flags.weekend_warrior
+        True
+    """
+
+    weekend_warrior: bool = Field(
+        default=False,
+        description='Disproportionate weekend transaction activity detected',
+    )
+
+    pump_and_dump: bool = Field(
+        default=False,
+        description='High-volume followed by inactivity pattern detected',
+    )
+
+    creeping_charlie: bool = Field(
+        default=False,
+        description='Gradual escalation pattern detected',
+    )
+
+    seasonal_mismatch: bool = Field(
+        default=False,
+        description='Seasonal anomaly pattern detected',
+    )
+
+    def any_detected(self) -> bool:
+        """
+        Check if any fraud pattern was detected.
+
+        Returns:
+            True if at least one fraud pattern flag is True.
+        """
+        return (
+            self.weekend_warrior
+            or self.pump_and_dump
+            or self.creeping_charlie
+            or self.seasonal_mismatch
+        )
+
+    def count_detected(self) -> int:
+        """
+        Count the number of detected fraud patterns.
+
+        Returns:
+            Integer count of True flags (0 to 4).
+        """
+        return sum(
+            [
+                self.weekend_warrior,
+                self.pump_and_dump,
+                self.creeping_charlie,
+                self.seasonal_mismatch,
+            ]
+        )
+
+    def get_detected_names(self) -> list[str]:
+        """
+        Get list of detected fraud pattern identifiers.
+
+        Returns field names (not user-facing labels) for patterns that
+        were detected. User-facing labels should be derived from locale
+        configuration in the presentation layer.
+
+        Returns:
+            List of field names for detected patterns.
+
+        Example:
+            >>> flags = FraudPatternFlags(weekend_warrior=True, pump_and_dump=True)
+            >>> flags.get_detected_names()
+            ['weekend_warrior', 'pump_and_dump']
+        """
+        detected: list[str] = []
+
+        if self.weekend_warrior:
+            detected.append('weekend_warrior')
+        if self.pump_and_dump:
+            detected.append('pump_and_dump')
+        if self.creeping_charlie:
+            detected.append('creeping_charlie')
+        if self.seasonal_mismatch:
+            detected.append('seasonal_mismatch')
+
+        return detected
+
+
+# =============================================================================
+# Nested Models: Summary Statistics
+# =============================================================================
+
+
+class TemporalRiskSummary(FrozenModel):
+    """
+    Container for aggregate summary statistics from temporal analysis.
+
+    This model provides a quick overview of the temporal analysis results
+    without requiring inspection of all individual components. Useful for
+    filtering, sorting, and high-level reporting.
+
+    Attributes:
+        total_risk_factors: Count of distinct risk factors identified across
+            all temporal analysis components (change points, spikes, patterns,
+            current risks). Higher counts indicate more concerning profiles.
+
+        total_change_points: Total number of behavioral change points detected
+            across all metrics and detection methods. Change points indicate
+            moments when behavior shifted significantly.
+
+        has_fraud_patterns: Boolean indicating whether any named fraud pattern
+            was detected. Equivalent to FraudPatternFlags.any_detected().
+
+        volatility_score: Copy of the month-over-month volatility score for
+            convenient access without navigating to MonthOverMonthAnalysis.
+
+        recent_behavior_score: Score (0-100 scale) reflecting risk based on
+            the most recent observation period only. Distinguishes between
+            historical concerns and current/ongoing issues.
+
+    Example:
+        >>> summary = TemporalRiskSummary(
+        ...     total_risk_factors=7,
+        ...     total_change_points=3,
+        ...     has_fraud_patterns=True,
+        ...     volatility_score=1.45,
+        ...     recent_behavior_score=82.5,
+        ... )
+    """
+
+    total_risk_factors: int = Field(
+        default=0,
+        description='Count of distinct risk factors identified',
+        ge=0,
+    )
+
+    total_change_points: int = Field(
+        default=0,
+        description='Total change points detected across all metrics',
+        ge=0,
+    )
+
+    has_fraud_patterns: bool = Field(
+        default=False,
+        description='Whether any named fraud pattern was detected',
+    )
+
+    volatility_score: float = Field(
+        default=0.0,
+        description='Month-over-month volatility score',
+        ge=0.0,
+    )
+
+    recent_behavior_score: float = Field(
+        default=0.0,
+        description='Risk score based on most recent period only (0-100)',
+        ge=0.0,
+        le=100.0,
+    )
+
+
+# =============================================================================
+# Main Model: TemporalRiskProfile
+# =============================================================================
+
+
+class TemporalRiskProfile(FrozenModel):
+    """
+    Container for comprehensive temporal analysis results for a single entity.
+
+    This is the root model for temporal risk analysis, aggregating all
+    time-series analysis outputs for a driver or vehicle. It captures
+    behavioral changes over time, including change point detection,
+    trend analysis, anomaly detection, and fraud pattern recognition.
+
+    The model is organized into several categories:
+        - Core identification (display_id, entity_type)
+        - Aggregate metrics (risk_score, months_active, total_transactions)
+        - Change point detection (change_points, multiple_change_points)
+        - Trend analysis (risk_indicators, segment_comparison)
+        - Volatility analysis (month_over_month)
+        - Anomaly detection (rolling_anomalies)
+        - Persistence analysis (autocorrelation)
+        - Pattern recognition (fraud_patterns)
+        - Current state (current_risk_factors)
+        - Summary (summary)
+
+    Attributes:
+        display_id: Human-readable identifier for the entity. For drivers,
+            this is typically the full name; for vehicles, the VIN or
+            fleet ID. Used as the primary identifier in reports.
+
+        entity_type: Type of entity being analyzed ('Driver' or 'Vehicle').
+            This is for internal use only; user-facing labels should come
+            from locale configuration.
+
+        risk_score: Composite temporal risk score (0-100 scale) aggregating
+            all temporal analysis components. Higher values indicate greater
+            risk based on behavioral patterns over time.
+
+        months_active: Number of distinct months with transaction activity
+            in the analysis period. Provides context for interpreting
+            other metrics—more months means more data for pattern detection.
+
+        total_transactions: Total transaction count across the analysis
+            period. Combined with months_active, indicates activity level
+            and statistical confidence.
+
+        truck_description: Optional vehicle description for vehicle entities
+            or the primary vehicle associated with a driver. May include
+            make, model, year, or fleet designation.
+
+        change_points: Dictionary mapping metric names to single detected
+            change point dates (YYYY-MM format). Each entry represents the
+            most significant structural break detected for that metric.
+            Example: {'no_eld_rate': '2024-06'} indicates the no-ELD rate
+            had a significant shift in June 2024.
+
+        risk_indicators: List of human-readable risk indicator strings
+            describing concerning trends detected. These are generated by
+            the analysis pipeline and may include directionality.
+            Example: ['INCREASING no_eld_rate', 'SUDDEN SPIKE in volume']
+
+        segment_comparison: Dictionary mapping metrics to first-half vs
+            second-half comparison results. Useful for detecting whether
+            behavior improved or worsened over the analysis period.
+            Example: {'no_eld_rate': 'INCREASED (p=0.023, r=0.45)'}
+
+        multiple_change_points: Dictionary mapping metrics to lists of ALL
+            detected change points when multiple structural breaks exist.
+            Example: {'no_eld_rate': ['2024-03', '2024-07', '2024-10']}
+
+        month_over_month: Structured analysis of month-to-month variability,
+            including sudden spikes, gradual escalation, and volatility score.
+
+        rolling_anomalies: Dictionary mapping metric names to their rolling
+            window anomaly detection results (outlier months, z-scores).
+
+        autocorrelation: Dictionary mapping metric names to their
+            autocorrelation analysis results (persistence patterns).
+
+        fraud_patterns: Structured container for named fraud pattern
+            detection flags (weekend_warrior, pump_and_dump, etc.).
+
+        current_risk_factors: List of risk factor descriptions present in
+            the most recent month of data. Critical for distinguishing
+            between historical issues and ongoing concerns.
+            Example: ['High No ELD Rate (45.2%)', 'High After Hours (62.1%)']
+
+        summary: Aggregate summary statistics for quick overview and
+            filtering without inspecting all individual components.
+
+    Example:
+        >>> profile = TemporalRiskProfile(
+        ...     display_id='John Smith',
+        ...     entity_type='Driver',
+        ...     risk_score=78,
+        ...     months_active=8,
+        ...     total_transactions=156,
+        ...     change_points={'no_eld_rate': '2024-06'},
+        ...     fraud_patterns=FraudPatternFlags(weekend_warrior=True),
+        ... )
+        >>> print(profile)
+        TemporalRiskProfile('John Smith', Driver, score=78, months=8, changes=1)
+    """
+
+    # -------------------------------------------------------------------------
+    # Core Identification
+    # -------------------------------------------------------------------------
+
     display_id: str = Field(
         ...,
         description='Human-readable identifier (driver name or VIN)',
         min_length=1,
     )
+
     entity_type: EntityType = Field(
         ...,
-        description="Type of entity ('Driver' or 'Vehicle')",
+        description="Entity type ('Driver' or 'Vehicle') - internal use only",
     )
+
+    # -------------------------------------------------------------------------
+    # Aggregate Risk Metrics
+    # -------------------------------------------------------------------------
+
     risk_score: int = Field(
         ...,
-        description='Comprehensive temporal risk score (0-100 scale)',
+        description='Composite temporal risk score (0-100 scale)',
         ge=0,
         le=100,
     )
+
     months_active: int = Field(
         ...,
-        description='Number of months with transactions',
+        description='Number of months with transaction activity',
         ge=0,
     )
+
     total_transactions: int = Field(
         ...,
-        description='Total number of transactions in the period',
+        description='Total transaction count in the analysis period',
         ge=0,
     )
+
+    # -------------------------------------------------------------------------
+    # Optional Entity Metadata
+    # -------------------------------------------------------------------------
+
     truck_description: str | None = Field(
         default=None,
-        description='Optional vehicle description',
+        description='Vehicle description (make, model, fleet ID)',
     )
 
-    # Original temporal analysis fields (maintained for backward compatibility)
+    # -------------------------------------------------------------------------
+    # Single Change Point Detection Results
+    # -------------------------------------------------------------------------
+    # Maps metric names to the single most significant change point date.
+    # Use multiple_change_points for complete change point histories.
+    # -------------------------------------------------------------------------
+
     change_points: dict[str, str] = Field(
         default_factory=dict,
-        description='Mapping of metric names to single change point dates',
+        description='Metric name -> primary change point date (YYYY-MM)',
     )
+
+    # -------------------------------------------------------------------------
+    # Trend Analysis Results
+    # -------------------------------------------------------------------------
+
     risk_indicators: list[str] = Field(
         default_factory=list,
-        description='List of all concerning trends and patterns detected',
+        description='List of detected concerning trend descriptions',
     )
+
     segment_comparison: dict[str, str] = Field(
         default_factory=dict,
-        description='Mapping of metrics to first-half vs second-half comparison results',
+        description='Metric name -> first-half vs second-half comparison result',
     )
 
-    # Enhanced temporal analysis fields
+    # -------------------------------------------------------------------------
+    # Multiple Change Point Detection Results
+    # -------------------------------------------------------------------------
+
     multiple_change_points: dict[str, list[str]] = Field(
         default_factory=dict,
-        description='Mapping of metrics to lists of ALL detected change points',
+        description='Metric name -> list of all detected change points (YYYY-MM)',
     )
-    month_over_month: dict[str, Any] = Field(
+
+    # -------------------------------------------------------------------------
+    # Month-Over-Month Volatility Analysis
+    # -------------------------------------------------------------------------
+
+    month_over_month: MonthOverMonthAnalysis = Field(
+        default_factory=MonthOverMonthAnalysis,
+        description='Month-to-month volatility and spike analysis',
+    )
+
+    # -------------------------------------------------------------------------
+    # Rolling Window Anomaly Detection
+    # -------------------------------------------------------------------------
+
+    rolling_anomalies: dict[str, RollingAnomalyResult] = Field(
         default_factory=dict,
-        description='Month-to-month volatility analysis',
+        description='Metric name -> rolling window anomaly detection results',
     )
-    rolling_anomalies: dict[str, dict[str, Any]] = Field(
+
+    # -------------------------------------------------------------------------
+    # Autocorrelation (Persistence) Analysis
+    # -------------------------------------------------------------------------
+
+    autocorrelation: dict[str, AutocorrelationResult] = Field(
         default_factory=dict,
-        description='Mapping of metrics to rolling window outlier detection results',
+        description='Metric name -> autocorrelation analysis results',
     )
-    autocorrelation: dict[str, dict[str, Any]] = Field(
-        default_factory=dict,
-        description='Mapping of metrics to autocorrelation analysis',
+
+    # -------------------------------------------------------------------------
+    # Named Fraud Pattern Detection
+    # -------------------------------------------------------------------------
+
+    fraud_patterns: FraudPatternFlags = Field(
+        default_factory=FraudPatternFlags,
+        description='Named fraud pattern detection flags',
     )
-    fraud_patterns: dict[str, bool] = Field(
-        default_factory=dict,
-        description='Dictionary of specific fraud pattern flags',
-    )
+
+    # -------------------------------------------------------------------------
+    # Current Period Risk Assessment
+    # -------------------------------------------------------------------------
+
     current_risk_factors: list[str] = Field(
         default_factory=list,
-        description='List of risk factors present in the most recent month',
-    )
-    summary: dict[str, Any] = Field(
-        default_factory=dict,
-        description='Dictionary containing summary statistics for quick overview',
+        description='Risk factor descriptions from most recent month',
     )
 
-    def to_dict(self, exclude_none: bool = False) -> dict[str, Any]:
-        """
-        Convert the profile to a dictionary for serialization.
+    # -------------------------------------------------------------------------
+    # Summary Statistics
+    # -------------------------------------------------------------------------
 
-        Args:
-            exclude_none: If True, exclude fields with None values.
+    summary: TemporalRiskSummary = Field(
+        default_factory=TemporalRiskSummary,
+        description='Aggregate summary statistics for quick overview',
+    )
+
+    # -------------------------------------------------------------------------
+    # Model Validators
+    # -------------------------------------------------------------------------
+
+    @model_validator(mode='after')
+    def validate_transaction_month_consistency(self) -> Self:
+        """
+        Validate that transaction count is consistent with activity period.
+
+        If there are no active months, total transactions should be zero.
+        This catches data pipeline errors where counts might be populated
+        for entities with no actual activity.
 
         Returns:
-            Dictionary representation of the profile with all fields.
+            The validated model instance.
+
+        Raises:
+            ValueError: If months_active is 0 but total_transactions > 0.
         """
-        return self.model_dump(exclude_none=exclude_none)
+        if self.months_active == 0 and self.total_transactions > 0:
+            raise ValueError(
+                f'Inconsistent data: months_active is 0 but total_transactions '
+                f'is {self.total_transactions}. Cannot have transactions without '
+                f'active months.'
+            )
 
-    def get_risk_category(self, thresholds: RiskScoreThresholds) -> RiskCategory:
+        return self
+
+    @model_validator(mode='after')
+    def validate_change_point_date_format(self) -> Self:
         """
-        Get the risk category based on temporal risk score.
+        Validate that change point dates follow expected YYYY-MM format.
 
-        Risk Score Thresholds:
-        - Critical: 75-100 (immediate investigation required)
-        - High: 50-74 (priority review needed)
-        - Medium: 25-49 (monitoring recommended)
-        - Low: 0-24 (normal behavior)
-
-        Args:
-            thresholds: Risk score threshold configuration.
+        Change point dates should be month identifiers in ISO format (YYYY-MM).
+        This validator performs a basic format check to catch obvious errors.
 
         Returns:
-            Risk category: 'Critical', 'High', 'Medium', or 'Low'
-        """
-        return categorize_risk_score(self.risk_score, thresholds)
+            The validated model instance.
 
-    def has_change_points(self) -> bool:
+        Raises:
+            ValueError: If any change point date doesn't match YYYY-MM pattern.
         """
-        Check if any change points were detected (single or multiple).
+
+        # Check single change points
+        for metric_name, date_value in self.change_points.items():
+            if not _MONTH_DATE_PATTERN.match(date_value):
+                raise ValueError(
+                    f"Invalid change point date format for '{metric_name}': "
+                    f"'{date_value}'. Expected YYYY-MM format."
+                )
+
+        # Check multiple change points
+        for metric_name, date_list in self.multiple_change_points.items():
+            for date_value in date_list:
+                if not _MONTH_DATE_PATTERN.match(date_value):
+                    raise ValueError(
+                        f"Invalid change point date format for '{metric_name}': "
+                        f"'{date_value}'. Expected YYYY-MM format."
+                    )
+
+        return self
+
+    @model_validator(mode='after')
+    def validate_summary_fraud_consistency(self) -> Self:
+        """
+        Validate consistency between fraud_patterns and summary.has_fraud_patterns.
+
+        The summary.has_fraud_patterns field should match the actual state
+        of the fraud_patterns flags. This catches synchronization errors
+        when summary is computed separately from detailed results.
 
         Returns:
-            True if change points exist in either change_points or multiple_change_points
-        """
-        result: bool = False
-        if self.change_points and len(self.change_points) > 0:
-            result = True
-        if self.multiple_change_points and len(self.multiple_change_points) > 0:
-            result = True
-        return result
+            The validated model instance.
 
-    def has_risk_indicators(self) -> bool:
+        Raises:
+            ValueError: If summary.has_fraud_patterns doesn't match actual state.
         """
-        Check if any concerning trends were detected.
+        actual_has_fraud: bool = self.fraud_patterns.any_detected()
+        reported_has_fraud: bool = self.summary.has_fraud_patterns
 
-        Returns:
-            True if risk_indicators list contains any items
-        """
-        return len(self.risk_indicators) > 0
+        if actual_has_fraud != reported_has_fraud:
+            raise ValueError(
+                f'Inconsistent fraud pattern data: fraud_patterns indicates '
+                f'{actual_has_fraud} but summary.has_fraud_patterns is '
+                f'{reported_has_fraud}.'
+            )
 
-    def get_change_point_count(self) -> int:
+        return self
+
+    # -------------------------------------------------------------------------
+    # Computed Properties
+    # -------------------------------------------------------------------------
+
+    def get_total_change_point_count(self) -> int:
         """
         Get the total number of detected change points across all metrics.
 
-        This includes both single change points and all multiple change points.
+        Counts both single change points and all entries in multiple change
+        points lists. This provides a comprehensive measure of behavioral
+        instability over time.
 
         Returns:
-            Total count of change points detected
+            Total count of change points detected.
         """
-        single_count: int = 0
-        multiple_count: int = 0
-        if self.change_points:
-            single_count = len(self.change_points)
-        if self.multiple_change_points:
-            multiple_count = sum(
-                len(cp_list) for cp_list in self.multiple_change_points.values()
-            )
+        single_count: int = len(self.change_points)
+
+        multiple_count: int = sum(
+            len(date_list) for date_list in self.multiple_change_points.values()
+        )
+
         return single_count + multiple_count
 
     def get_earliest_change_point(self) -> str | None:
         """
         Get the earliest change point date across all metrics.
 
-        Searches both single change points and multiple change points to find
-        the earliest date when behavioral change was detected.
+        Searches both single change points and multiple change points to
+        find the earliest moment when behavioral change was detected.
 
         Returns:
-            Date string of earliest change point (YYYY-MM format), or None if no change points
+            Date string in YYYY-MM format, or None if no change points exist.
         """
         all_dates: list[str] = []
 
-        # Add single change points
-        if self.change_points:
-            all_dates.extend(self.change_points.values())
+        # Collect single change points
+        all_dates.extend(self.change_points.values())
 
-        # Add all multiple change points
-        if self.multiple_change_points:
-            for cp_list in self.multiple_change_points.values():
-                all_dates.extend(cp_list)
+        # Collect multiple change points
+        for date_list in self.multiple_change_points.values():
+            all_dates.extend(date_list)
 
         if not all_dates:
             return None
 
+        # YYYY-MM format sorts correctly as strings
         return min(all_dates)
 
-    def has_fraud_patterns(self) -> bool:
+    def get_latest_change_point(self) -> str | None:
         """
-        Check if any specific fraud patterns were detected.
+        Get the most recent change point date across all metrics.
 
         Returns:
-            True if any fraud pattern flag is True
+            Date string in YYYY-MM format, or None if no change points exist.
         """
-        return any(self.fraud_patterns.values())
+        all_dates: list[str] = []
 
-    def get_detected_fraud_patterns(self) -> list[str]:
-        """
-        Get list of detected fraud pattern names.
+        all_dates.extend(self.change_points.values())
 
-        Returns:
-            list of fraud pattern names that were detected (flagged as True)
-            Example: ['weekend_warrior', 'pump_and_dump']
-        """
-        return [
-            pattern for pattern, detected in self.fraud_patterns.items() if detected
-        ]
+        for date_list in self.multiple_change_points.values():
+            all_dates.extend(date_list)
 
-    def has_sudden_spikes(self) -> bool:
-        """
-        Check if any sudden month-over-month spikes were detected.
+        if not all_dates:
+            return None
 
-        Returns:
-            True if sudden_spikes list in month_over_month is non-empty
-        """
-        return bool(self.month_over_month.get('sudden_spikes', []))
+        return max(all_dates)
 
-    def has_gradual_escalation(self) -> bool:
-        """
-        Check if any gradual escalation patterns were detected.
-
-        Returns:
-            True if gradual_escalation list in month_over_month is non-empty
-        """
-        return bool(self.month_over_month.get('gradual_escalation', []))
-
-    def has_persistent_patterns(self) -> bool:
-        """
-        Check if any metrics show high autocorrelation (persistent bad behavior).
-
-        Returns:
-            True if any metric has risk_level of 'HIGH' in autocorrelation analysis
-        """
-        return any(
-            data.get('risk_level') == 'HIGH' for data in self.autocorrelation.values()
-        )
-
-    def get_volatility_score(self) -> float:
-        """
-        Get the month-over-month volatility score.
-
-        Higher values indicate more erratic behavior changes.
-
-        Returns:
-            Volatility score, or 0.0 if not available
-        """
-        return self.month_over_month.get('volatility_score', 0.0)
-
-    def get_current_risk_factor_count(self) -> int:
-        """
-        Get the count of risk factors present in the most recent month.
-
-        Returns:
-            Number of current risk factors
-        """
-        return len(self.current_risk_factors)
-
-    def has_current_risks(self) -> bool:
-        """
-        Check if there are any risk factors in the most recent month.
-
-        This is particularly important because it shows whether risky
-        behavior is ongoing rather than historical.
-
-        Returns:
-            True if current_risk_factors list is non-empty
-        """
-        return len(self.current_risk_factors) > 0
-
-    def get_risk_summary(self, thresholds: RiskScoreThresholds) -> dict[str, Any]:
-        """
-        Get a comprehensive summary of all risk factors.
-
-        Args:
-            thresholds: Risk score threshold configuration.
-
-        Returns:
-            dictionary with categorized risk information including:
-            - risk_category: Overall risk level
-            - risk_score: Numeric score
-            - has_change_points: Boolean
-            - change_point_count: Integer
-            - fraud_patterns_detected: list of pattern names
-            - has_sudden_spikes: Boolean
-            - has_persistent_patterns: Boolean
-            - current_risks: Boolean
-            - volatility: Float
-        """
-        return {
-            'risk_category': self.get_risk_category(thresholds),
-            'risk_score': self.risk_score,
-            'has_change_points': self.has_change_points(),
-            'change_point_count': self.get_change_point_count(),
-            'fraud_patterns_detected': self.get_detected_fraud_patterns(),
-            'has_sudden_spikes': self.has_sudden_spikes(),
-            'has_persistent_patterns': self.has_persistent_patterns(),
-            'current_risks': self.has_current_risks(),
-            'volatility': self.get_volatility_score(),
-        }
-
-    def get_analysis_flags(self) -> list[str]:
-        """
-        Get a list of all active analysis flags for quick scanning.
-
-        This provides a high-level overview of what types of suspicious
-        behavior were detected, useful for reporting and prioritization.
-
-        Returns:
-            list of flag descriptions
-            Example: ['FRAUD_PATTERNS', 'SUDDEN_SPIKES', 'PERSISTENT_BEHAVIOR', 'CURRENT_RISKS']
-        """
-        flags: list[str] = []
-
-        if self.has_fraud_patterns():
-            flags.append('FRAUD_PATTERNS')
-
-        if self.has_change_points():
-            flags.append('BEHAVIORAL_CHANGES')
-
-        if self.has_sudden_spikes():
-            flags.append('SUDDEN_SPIKES')
-
-        if self.has_gradual_escalation():
-            flags.append('GRADUAL_ESCALATION')
-
-        if self.has_persistent_patterns():
-            flags.append('PERSISTENT_BEHAVIOR')
-
-        if self.has_current_risks():
-            flags.append('CURRENT_RISKS')
-
-        if self.get_volatility_score() > 1.0:
-            flags.append('HIGH_VOLATILITY')
-
-        return flags
-
-    def format_brief_summary(self, thresholds: RiskScoreThresholds) -> str:
-        """
-        Generate a brief one-line summary of the temporal analysis.
-
-        Useful for reports, logs, and quick scanning of multiple entities.
-
-        Returns:
-            Formatted string with key information
-            Example: "Driver-12345 | Critical Risk (Score: 87) | 3 fraud patterns | 5 change points | ACTIVE"
-        """
-        active_status: Literal['ACTIVE RISKS'] | Literal['Historical'] = (
-            'ACTIVE RISKS' if self.has_current_risks() else 'Historical'
-        )
-        fraud_count: int = len(self.get_detected_fraud_patterns())
-
-        summary_parts: list[str] = [
-            f'{self.entity_type}-{self.display_id}',
-            f'{self.get_risk_category(thresholds)} Risk (Score: {self.risk_score})',
-        ]
-
-        if fraud_count > 0:
-            summary_parts.append(f'{fraud_count} fraud patterns')
-
-        change_count: int = self.get_change_point_count()
-        if change_count > 0:
-            summary_parts.append(f'{change_count} change points')
-
-        summary_parts.append(active_status)
-
-        return ' | '.join(summary_parts)
+    # -------------------------------------------------------------------------
+    # String Representation
+    # -------------------------------------------------------------------------
 
     def __repr__(self) -> str:
         """
-        String representation showing key temporal analysis information.
+        Return a compact string representation for debugging and logging.
+
+        Shows the most important fields for quick identification: entity ID,
+        type, risk score, months of activity, and change point count.
 
         Returns:
-            Formatted string for debugging and logging
+            Compact string suitable for logs and REPL inspection.
+
+        Example:
+            >>> repr(profile)
+            "TemporalRiskProfile('John Smith', Driver, score=78, months=8, changes=3)"
         """
-        flags: str = (
-            ', '.join(self.get_analysis_flags())
-            if self.get_analysis_flags()
-            else 'None'
-        )
+        change_count: int = self.get_total_change_point_count()
 
         return (
-            f"TemporalRiskProfile(id='{self.display_id}', "
-            f"type='{self.entity_type}', "
-            f'risk_score={self.risk_score}, '
-            f'months_active={self.months_active}, '
-            f'change_points={self.get_change_point_count()}, '
-            f'flags=[{flags}])'
+            f"TemporalRiskProfile('{self.display_id}', "
+            f'{self.entity_type}, '
+            f'score={self.risk_score}, '
+            f'months={self.months_active}, '
+            f'changes={change_count})'
         )

@@ -12,7 +12,9 @@ transactions.
 
 from pydantic import Field
 
-from argus.models.common import FormatStr, FormatStrList, FrozenModel, P
+from argus.models.common import FrozenModel
+from argus.models.locale.placeholder_registry import P
+from argus.models.locale.placeholder_validators import FormatStr, FormatStrList
 
 __all__: list[str] = [
     'FinancialImpact',
