@@ -13,10 +13,10 @@ from argus.models.config.logging import LoggingConfig
 from argus.models.config.output import OutputConfig
 from argus.models.config.performance import PerformanceConfig
 
-__all__: list[str] = ['FuelCardForensicsUserConfig']
+__all__: list[str] = ['UserConfig']
 
 
-class FuelCardForensicsUserConfig(RootConfigModel):
+class UserConfig(RootConfigModel):
     """
     Root configuration for ARGUS Fuel Card Forensics.
 
@@ -32,7 +32,7 @@ class FuelCardForensicsUserConfig(RootConfigModel):
         performance: Tuning parameters for computational operations.
 
     Example:
-        >>> config = FuelCardForensicsUserConfig.from_yaml("config.yaml")
+        >>> config = UserConfig.from_yaml("config.yaml")
         >>> config.analysis.target_location_name
         'Philadelphia Branch'
     """

@@ -12,7 +12,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from argus.formatting.report_formatter import ReportFormatter
-from argus.models.config import FuelCardForensicsConfig
+from argus.models.config import UserConfig
 from argus.output_formatter import ForensicReportWriter
 
 __all__: list[str] = [
@@ -97,7 +97,7 @@ class AnalysisContext(BaseModel):
     # CONFIGURATION
     # =========================================================================
 
-    config: FuelCardForensicsConfig = Field(
+    config: UserConfig = Field(
         ...,
         description='Main configuration object for the current run.',
     )

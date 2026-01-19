@@ -104,7 +104,7 @@ from argus.models.locale.report_footer import (
 )
 from argus.models.locale.report_metadata import Metadata
 from argus.models.locale.risk_categories import RiskCategories, RiskCategoryItem
-from argus.models.locale.root_config import ReportConfig
+from argus.models.locale.root_config import LocaleConfig
 from argus.models.locale.temporal import (
     TemporalAnalysis,
     TemporalAnalysisCaveats,
@@ -202,6 +202,7 @@ __all__: list[str] = [
     'GeographicAnalysisSuspiciousStations',
     'GeographicAnalysisTableHeaders',
     'InsufficientScenarioItem',
+    'LocaleConfig',
     'LocaleSettings',
     'Metadata',
     'MultiFillupAnalysis',
@@ -214,7 +215,6 @@ __all__: list[str] = [
     'RedFlagItem',
     'RedFlags',
     'RedFlagsGroup',
-    'ReportConfig',
     'ReportFooter',
     'ReportFooterClosing',
     'ReportFooterDataCoverage',

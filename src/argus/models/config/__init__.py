@@ -6,15 +6,15 @@ from argus.models.config.data_sources import DataSourcesConfig
 from argus.models.config.logging import LoggingConfig, LogLevel
 from argus.models.config.output import OutputConfig
 from argus.models.config.performance import PerformanceConfig
-from argus.models.config.root import FuelCardForensicsUserConfig
+from argus.models.config.root import UserConfig
 
 __all__: list[str] = [
     'AnalysisConfig',
     'ColumnMappingConfig',
     'DataSourcesConfig',
-    'FuelCardForensicsUserConfig',
     'LogLevel',
     'LoggingConfig',
     'OutputConfig',
     'PerformanceConfig',
+    'UserConfig',
 ]

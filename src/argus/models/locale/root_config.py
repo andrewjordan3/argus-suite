@@ -46,7 +46,7 @@ from argus.models.locale.risk_categories import RiskCategories
 from argus.models.locale.temporal import TemporalAnalysis
 from argus.models.locale.vehicle_analysis import VehicleAnalysis
 
-__all__: list[str] = ['ReportConfig']
+__all__: list[str] = ['LocaleConfig']
 
 # ============================================================================
 # ROOT MODEL (COMPLETE LOCALE CONFIGURATION)
@@ -56,7 +56,7 @@ __all__: list[str] = ['ReportConfig']
 # ============================================================================
 
 
-class ReportConfig(RootConfigModel):
+class LocaleConfig(RootConfigModel):
     """
     Complete ARGUS locale configuration model.
 
@@ -68,14 +68,14 @@ class ReportConfig(RootConfigModel):
     Usage Example:
     ```python
         import yaml
-        from ARGUS.models.locale.root_config import ReportConfig
+        from ARGUS.models.locale.root_config import LocaleConfig
 
         # Load locale YAML configuration
         with open('argus/locales/english.yaml', 'r') as f:
             config_dict = yaml.safe_load(f)
 
         # Parse and validate with Pydantic
-        config = ReportConfig(**config_dict)
+        config = LocaleConfig(**config_dict)
 
         # Access with type safety and IDE support
         currency_symbol = config.locale.currency_symbol
