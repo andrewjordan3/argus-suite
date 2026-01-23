@@ -1,39 +1,36 @@
 # argus/formatting/report_formatter.py
-
 """
-Report Formatting Utilities for ARGUS Fuel Card Forensics
-==========================================================
+Report Formatting Utilities for ARGUS Fuel Card Forensics.
 
-This module provides formatting utilities for creating standardized,
-professional output in forensic analysis reports.
+This module provides the ReportFormatter class, which centralizes all
+data formatting, interpretation, and presentation logic for forensic
+analysis reports.
 
-The ReportFormatter class provides:
-- Currency formatting with configurable symbols and decimals
-- Percentage formatting
-- Number formatting with thousands separators
-- Date and time formatting
-- Delta interpretation (increase/decrease language)
-- Statistical interpretation helpers
-- Effect size categorization
-- Template variable substitution
-- Text layout and formatting (separators, centering)
+Capabilities:
+    - Numeric formatting (currency, percentages, integers, decimals)
+    - Date and time formatting with locale awareness
+    - Statistical value formatting (p-values, confidence intervals)
+    - Statistical interpretation (significance levels, effect sizes)
+    - Risk score categorization
+    - Template variable substitution
+    - Text layout utilities (separators, centering)
 
-Usage:
-    from argus.utils.config_loader import ConfigLoader
-    from argus.utils.report_formatter import ReportFormatter
+Architecture:
+    ReportFormatter depends on ArgusConfig, which bundles:
+        - PolicyConfig: Numeric thresholds (significance levels, risk cutoffs)
+        - LocaleConfig: User-facing text templates and format settings
 
-    config = ConfigLoader()
-    formatter = ReportFormatter(config)
-
-    # Format currency
-    formatted_cost = formatter.format_currency(1234.56)  # "$1,234.56"
-
-    # Format percentage
-    formatted_pct = formatter.format_percent(0.1523, decimals=1)  # "15.2%"
-
-    # Apply template variables
-    template = config.get('section.template')
-    output = formatter.format_template(template, target='Chicago', year=2025)
+Example:
+    >>> from argus.models.context import ArgusConfig
+    >>> from argus.formatting import ReportFormatter
+    >>>
+    >>> context = ArgusConfig(user=user_cfg, policy=policy_cfg, locale=locale_cfg)
+    >>> formatter = ReportFormatter(context)
+    >>>
+    >>> formatter.format_currency(1234.56)
+    '$1,234.56'
+    >>> formatter.interpret_p_value(0.003)
+    'very significant (p = 0.003)'
 """
 
 import logging
@@ -43,105 +40,88 @@ from typing import Any
 
 import pandas as pd
 
-from argus.config import FuelCardForensicsConfig
-from argus.models.config.user_config_models import PValueThresholdsConfig
 from argus.formatting.safe_template import safe_format_template
-from argus.models import (
-    ConfigurationFormatting,
-    ReportConfig,
-    TemporalAnalysisMetricDisplayNames,
+from argus.models.context import ArgusConfig
+from argus.models.locale.interpretations import TestInterpretationsPValues
+from argus.models.locale.temporal import TemporalAnalysisMetricDisplayNames
+from argus.models.policy import PValueThresholdsConfig
+from argus.utils import (
+    categorize_risk_score,
+    get_cliffs_delta_magnitude,
+    get_cohens_d_magnitude,
+    is_missing_like,
 )
-from argus.utils import get_cliffs_delta_magnitude, is_missing_like
 
 __all__: list[str] = ['ReportFormatter']
 
-# Set up a logger for this module
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ReportFormatter:
     """
-    Provides formatting utilities for forensic report generation.
+    Centralized formatting and interpretation for forensic report generation.
 
-    This class handles all data formatting, interpretation, and presentation logic,
-    using configuration settings from a ConfigLoader instance.
+    This class provides consistent data presentation across all ARGUS reports
+    by combining policy-defined thresholds with locale-defined display text.
 
-    Responsibilities:
-    - Format numerical values (currency, percentages, numbers)
-    - Format dates and times
-    - Interpret statistical results
-    - Categorize effect sizes
-    - Generate human-readable delta descriptions
-    - Apply template variable substitution
-    - Format text layout (separators, centering)
-    - Apply consistent formatting standards across reports
+    Attributes:
+        context: The ArgusConfig containing all configuration.
+        thousands_separator: Character used for numeric grouping (from locale).
+        output_width: Default width for text layout operations (from locale).
     """
 
-    def __init__(
-        self, locale_template: ReportConfig, user_config: FuelCardForensicsConfig
-    ) -> None:
+    def __init__(self, context: ArgusConfig) -> None:
         """
         Initialize the report formatter.
 
         Args:
-            config_loader: ConfigLoader instance containing formatting preferences
-                          and thresholds
+            context: ArgusConfig containing policy and locale settings.
         """
-        self.template: ReportConfig = locale_template
-        self.user_config: FuelCardForensicsConfig = user_config
+        self.context: ArgusConfig = context
+        self.thousands_separator: str = self.context.locale.locale.thousands_separator
+        self.output_width: int = self.context.locale.locale.output_width
+        self.missing_value: str = self.context.locale.locale.missing_value
 
-        # Cache formatting configuration for performance
-        self._formatting: ConfigurationFormatting = (
-            self.template.configuration.formatting
+        logger.debug(
+            'ReportFormatter initialized with locale=%r',
+            self.context.locale.locale.language_code,
         )
 
-        # Extract commonly used values
-        self.thousands_separator: str = self._formatting.thousands_separator
-        self.output_width: int = self._formatting.output_width
+    # =========================================================================
+    # Private Helpers
+    # =========================================================================
 
-    # ========================================================================
-    # Internal Helper Functions
-    # ========================================================================
     @staticmethod
     def _str_to_num(
         value: str | int | float | None,
-        desired_type: type[int] | type[float],
+        target_type: type[int] | type[float],
         caller: str,
     ) -> int | float:
         """
-        Convert a scalar to a numeric type with a NaN-on-failure contract.
+        Convert a scalar to a numeric type, returning NaN on failure.
 
-        Contract:
-            - If `value` is missing-like, return `math.nan`.
-            - If `desired_type` is `float`, attempt `float(value)`.
-            - If `desired_type` is `int`, attempt `float(value)` first and then truncate
-            toward zero via `int(float_value)` (e.g., "3.2" -> 3, "-3.2" -> -3).
-            - If conversion fails or the parsed number is NaN/Inf, return `math.nan`
-            and log a warning.
+        This method provides a consistent contract for numeric conversion
+        across all formatting methods, handling edge cases gracefully.
 
-        Type note:
-            - `math.nan` is always a `float`.
-            - Therefore, even when `desired_type` is `int`, failures return a float NaN.
+        Conversion Rules:
+            - Missing-like values (None, NaN, empty strings) -> math.nan
+            - For float: attempts float(value)
+            - For int: attempts float(value) then truncates toward zero
+            - Non-finite results (NaN, Inf) -> math.nan
+            - Conversion failures -> math.nan with warning logged
 
         Args:
             value: Scalar to convert (string, int, float, or None).
-            desired_type: Conversion target type; pass the built-in `int` or `float`.
-            caller: Calling context used in logs.
+            target_type: Desired numeric type (int or float).
+            caller: Method name for log context.
 
         Returns:
-            - An `int` when `desired_type` is `int` and conversion succeeds.
-            - A `float` when `desired_type` is `float` and conversion succeeds.
-            - `math.nan` (float) when missing-like, NaN/Inf, or conversion fails.
+            Converted numeric value, or math.nan on failure.
 
-        Side effects:
-            Emits a WARNING log entry on conversion failure.
-
-        Raises:
-            Never raises; errors are handled internally.
+        Note:
+            Return type is always float when conversion fails, since
+            math.nan is a float. Callers should check with math.isnan().
         """
-        # Immediate Guard: Reject explicitly invalid types or missing values.
-        # We group None, bool, and missing checks here to clear the noise.
-        # Note: We check isinstance(bool) because Python treats True as 1.0, which we do not want.
         if value is None or isinstance(value, bool) or is_missing_like(value):
             return math.nan
 
@@ -149,94 +129,91 @@ class ReportFormatter:
             float_value = float(value)
         except (TypeError, ValueError) as exc:
             logger.warning(
-                'Failed to convert %r to %s in %s (%s). Returning NaN.',
-                value,
-                desired_type.__name__,
+                '%s: Failed to convert %r to %s (%s). Returning NaN.',
                 caller,
+                value,
+                target_type.__name__,
                 exc,
             )
             return math.nan
 
-        # Ensure the number is usable (finite).
-        # math.isfinite() returns False for both NaN and Infinity.
         if not math.isfinite(float_value):
             return math.nan
 
-        if desired_type is float:
+        if target_type is float:
             return float_value
 
-        if desired_type is int:
-            # Truncate toward zero (Python's int() behavior).
+        if target_type is int:
             return int(float_value)
 
-        # Defensive: if someone passes an unexpected callable/type.
         logger.warning(
-            'Unsupported desired_type=%r in %s. Expected int or float. Returning NaN.',
-            desired_type,
+            '%s: Unsupported target_type=%r. Expected int or float. Returning NaN.',
             caller,
+            target_type,
         )
         return math.nan
 
-    # ========================================================================
-    # Template Variable Substitution
-    # ========================================================================
+    # =========================================================================
+    # Template Substitution
+    # =========================================================================
 
     def format_template(self, template: str, **kwargs: Any) -> str:
         """
-        Format a template string with variable substitution. This is a wrapper
-        for the from safe_format_template function.
+        Substitute variables into a template string.
+
+        Wraps safe_format_template to provide graceful handling of missing
+        keys and type mismatches.
 
         Args:
-            template: Template string with {variable} placeholders
-            **kwargs: Variable names and values for substitution
+            template: Template string with {placeholder} syntax.
+            **kwargs: Variable names and values for substitution.
 
         Returns:
-            Formatted string with variables replaced
+            Formatted string with placeholders replaced.
 
         Examples:
-            >>> template = "Analyzing {target_location} for {analysis_period}"
-            >>> formatter.format_template(template,
-            ...     target_location='Chicago North',
-            ...     analysis_period='2025 YTD')
-            'Analyzing Chicago North for 2025 YTD'
+            >>> formatter.format_template(
+            ...     "Analyzing {location} for {period}",
+            ...     location='Chicago',
+            ...     period='2025 YTD'
+            ... )
+            'Analyzing Chicago for 2025 YTD'
         """
         if not template:
-            logger.debug(
-                'Empty template provided to format_template with keywords: %r', kwargs
-            )
+            logger.debug('Empty template provided with kwargs: %r', kwargs)
             return ''
 
         return safe_format_template(template, **kwargs)
 
-    def format_list(self, items: list[str], **kwargs: Any) -> list[str]:
+    def format_template_list(self, templates: list[str], **kwargs: Any) -> list[str]:
         """
-        Format a list of template strings.
+        Apply variable substitution to a list of template strings.
 
         Args:
-            items: list of template strings
-            **kwargs: Variables for substitution
+            templates: List of template strings.
+            **kwargs: Variables for substitution.
 
         Returns:
-            list of formatted strings
+            List of formatted strings.
         """
-        return [self.format_template(item, **kwargs) for item in items]
+        return [self.format_template(item, **kwargs) for item in templates]
 
-    # ========================================================================
-    # Number Formatting Methods
-    # ========================================================================
+    # =========================================================================
+    # Numeric Formatting
+    # =========================================================================
 
     def format_currency(
         self, value: float | str | None, decimals: int | None = None
     ) -> str:
         """
-        Format a value as currency using configured settings.
+        Format a value as currency.
 
         Args:
-            value: Numerical value to format
-            decimals: Optional number of decimal places (uses config default if None)
+            value: Numeric value to format.
+            decimals: Decimal places (uses locale default if None).
 
         Returns:
-            Formatted currency string (e.g., "$1,234.56")
+            Formatted currency string (e.g., "$1,234.56").
 
         Examples:
             >>> formatter.format_currency(1234.56)
@@ -247,19 +224,20 @@ class ReportFormatter:
         clean_value: float = self._str_to_num(value, float, 'format_currency')
 
         if math.isnan(clean_value):
-            return 'N/A'
+            return self.missing_value
 
         precision: int = (
-            decimals if decimals is not None else self._formatting.currency_decimals
+            decimals
+            if decimals is not None
+            else self.context.locale.locale.currency_decimals
         )
 
-        # Format with thousands separator
         formatted: str = f'{clean_value:,.{precision}f}'
 
-        # Only pay the cost of replacement if we aren't using the default ','
         if self.thousands_separator != ',':
             formatted = formatted.replace(',', self.thousands_separator)
-        return f'{self._formatting.currency_symbol}{formatted}'
+
+        return f'{self.context.locale.locale.currency_symbol}{formatted}'
 
     def format_percent(
         self, value: float | str | None, decimals: int | None = None
@@ -268,11 +246,11 @@ class ReportFormatter:
         Format a proportion (0-1) as a percentage.
 
         Args:
-            value: Proportion value (0-1)
-            decimals: Optional number of decimal places (uses config default if None)
+            value: Proportion value between 0 and 1.
+            decimals: Decimal places (uses locale default if None).
 
         Returns:
-            Formatted percentage string (e.g., "15.2%")
+            Formatted percentage string (e.g., "15.2%").
 
         Examples:
             >>> formatter.format_percent(0.1523)
@@ -283,44 +261,49 @@ class ReportFormatter:
         clean_value: float = self._str_to_num(value, float, 'format_percent')
 
         if math.isnan(clean_value):
-            return 'N/A'
+            return self.missing_value
 
-        decimals = (
-            decimals if decimals is not None else self._formatting.percentage_decimals
+        precision: int = (
+            decimals
+            if decimals is not None
+            else self.context.locale.locale.percentage_decimals
         )
 
         percentage: float = 100.0 * clean_value
-        return f'{percentage:.{decimals}f}%'
+        return f'{percentage:.{precision}f}%'
 
     def format_number(
         self, value: float | str | None, decimals: int | None = None
     ) -> str:
         """
-        Format a number with thousands separator.
+        Format a decimal number with thousands separator.
 
         Args:
-            value: Numerical value to format
-            decimals: Number of decimal places (default from config)
+            value: Numeric value to format.
+            decimals: Decimal places (uses locale default if None).
 
         Returns:
-            Formatted number string (e.g., "1,234.56")
+            Formatted number string (e.g., "1,234.56").
 
         Examples:
             >>> formatter.format_number(1234.56)
             '1,234.56'
-            >>> formatter.format_number(1234567, decimals=0)
-            '1,234,567'
+            >>> formatter.format_number(1234567.89, decimals=0)
+            '1,234,568'
         """
         clean_value: float = self._str_to_num(value, float, 'format_number')
 
         if math.isnan(clean_value):
-            return 'N/A'
+            return self.missing_value
 
-        decimals = (
-            decimals if decimals is not None else self._formatting.number_decimals
+        precision: int = (
+            decimals
+            if decimals is not None
+            else self.context.locale.locale.number_decimals
         )
 
-        formatted: str = f'{clean_value:,.{decimals}f}'
+        formatted: str = f'{clean_value:,.{precision}f}'
+
         if self.thousands_separator != ',':
             formatted = formatted.replace(',', self.thousands_separator)
 
@@ -331,308 +314,40 @@ class ReportFormatter:
         Format an integer with thousands separator.
 
         Args:
-            value: Integer value to format
+            value: Integer value to format (floats are truncated).
 
         Returns:
-            Formatted integer string (e.g., "1,234")
+            Formatted integer string (e.g., "1,234").
 
         Examples:
             >>> formatter.format_integer(1234)
+            '1,234'
+            >>> formatter.format_integer(1234.7)
             '1,234'
         """
         clean_value: int | float = self._str_to_num(value, int, 'format_integer')
 
         if math.isnan(clean_value):
-            return 'N/A'
+            return self.missing_value
 
         formatted: str = f'{clean_value:,}'
+
         if self.thousands_separator != ',':
             formatted = formatted.replace(',', self.thousands_separator)
 
         return formatted
 
-    # ========================================================================
-    # Date and Time Formatting Methods
-    # ========================================================================
-
-    def format_date(self, date: datetime, format_string: str | None = None) -> str:
-        """
-        Format a date according to configured preferences.
-
-        Args:
-            date: datetime object to format
-            format_string: Optional custom format string (uses config default if None)
-
-        Returns:
-            Formatted date string
-
-        Examples:
-            >>> formatter.format_date(datetime(2025, 3, 15))
-            '2025-03-15'  # or configured format
-        """
-        if pd.isna(date):
-            return 'N/A'
-
-        format_string = (
-            format_string
-            if format_string is not None
-            else self._formatting.datetime_formats.date_format
-        )
-
-        return date.strftime(format_string)
-
-    def format_datetime(self, dt: datetime, format_string: str | None = None) -> str:
-        """
-        Format a datetime according to configured preferences.
-
-        Args:
-            dt: datetime object to format
-            format_string: Optional custom format string (uses config default if None)
-
-        Returns:
-            Formatted datetime string
-        """
-        if pd.isna(dt):
-            return 'N/A'
-
-        format_string = (
-            format_string
-            if format_string is not None
-            else self._formatting.datetime_formats.datetime_format
-        )
-
-        return dt.strftime(format_string)
-
-    def format_month(self, month_str: str) -> str:
-        """
-        Format a YYYY-MM string to a more readable format.
-
-        Args:
-            month_str: Month in YYYY-MM format
-
-        Returns:
-            Formatted month string like "Jun 2024"
-        """
-        try:
-            dt: datetime = datetime.strptime(month_str, '%Y-%m').replace(tzinfo=UTC)
-            return dt.strftime('%b %Y')  # e.g., "Jun 2024"
-        except (ValueError, AttributeError):
-            return month_str  # Return as-is if parsing fails
-
-    # ========================================================================
-    # Statistical Formatting Methods
-    # ========================================================================
-
-    def format_p_value(self, p: float | str | None) -> str:
-        """
-        Format p-value with precision and conventional markers.
-
-        Args:
-            p: P-value from statistical test
-
-        Returns:
-            Formatted p-value string with significance markers
-            (*, **, *** for p < 0.05, 0.01, 0.001)
-        """
-        clean_value: float = self._str_to_num(p, float, 'format_p_value')
-
-        if math.isnan(clean_value):
-            return 'N/A'
-
-        # We use the user configured thresholds for significance levels
-        p_value_thresholds: PValueThresholdsConfig = self.user_config.statistics.p_value
-        highly_significant: float = p_value_thresholds.highly_significant
-        decimals: int = self._formatting.p_value_decimals
-
-        if clean_value < highly_significant:
-            return f'p < {highly_significant}***'
-        elif clean_value < p_value_thresholds.very_significant:
-            return f'p = {clean_value:.{decimals}f}**'
-        elif clean_value < p_value_thresholds.significant:
-            return f'p = {clean_value:.{decimals}f}*'
-        else:
-            return f'p = {clean_value:.2f}'
-
-    def format_confidence_interval(
-        self,
-        lower: float | str | None,
-        upper: float | str | None,
-        decimals: int | None = None,
-    ) -> str:
-        """
-        Format a confidence interval.
-
-        Args:
-            lower: Lower bound of interval
-            upper: Upper bound of interval
-            decimals: Number of decimal places (uses config default if None)
-
-        Returns:
-            Formatted confidence interval string (e.g., "[1.23, 4.56]")
-        """
-        clean_lower: float = self._str_to_num(
-            lower, float, 'format_confidence_interval'
-        )
-        clean_upper: float = self._str_to_num(
-            upper, float, 'format_confidence_interval'
-        )
-
-        if math.isnan(clean_lower) or math.isnan(clean_upper):
-            return 'N/A'
-
-        if decimals is None:
-            decimals = self._formatting.confidence_interval_decimals
-
-        return f'[{clean_lower:.{decimals}f}, {clean_upper:.{decimals}f}]'
-
-    # ========================================================================
-    # Text Layout and Formatting Methods
-    # ========================================================================
-
-    def separator(self, char: str = '=', width: int | None = None) -> str:
-        """
-        Create a separator line using configured width.
-
-        Args:
-            char: Character to use for separator
-            width: Optional width (uses config default if None)
-
-        Returns:
-            Separator line string
-
-        Examples:
-            >>> formatter.separator()
-            '===================================================================='
-            >>> formatter.separator('-')
-            '--------------------------------------------------------------------'
-        """
-        if width is None:
-            width = self.output_width
-        return char * width
-
-    def center_text(self, text: str, width: int | None = None) -> str:
-        """
-        Center text within configured width.
-
-        Args:
-            text: Text to center
-            width: Optional width (uses config default if None)
-
-        Returns:
-            Centered text string
-
-        Examples:
-            >>> formatter.center_text("REPORT TITLE")
-            '                           REPORT TITLE                            '
-        """
-        return text.center(self.output_width if width is None else width)
-
-    # ========================================================================
-    # Statistical Interpretation Methods
-    # ========================================================================
-
-    def interpret_p_value(
-        self, p_value: float | str | None, alpha: float | None = None
-    ) -> str:
-        """
-        Interpret a p-value in human-readable terms.
-
-        Args:
-            p_value: P-value from statistical test
-            alpha: Optional significance threshold (uses config default if None)
-
-        Returns:
-            Interpretation string
-
-        Examples:
-            >>> formatter.interpret_p_value(0.001)
-            'highly significant (p < 0.001)'
-            >>> formatter.interpret_p_value(0.15)
-            'not significant (p = 0.15)'
-        """
-        if alpha is None:
-            alpha = self.get_alpha()
-
-        clean_p_value: float = self._str_to_num(p_value, float, 'interpret_p_value')
-
-        if clean_p_value < 0.001:  # noqa: PLR2004
-            return self.template.test_interpretations.p_value.highly_significant
-        elif clean_p_value < 0.01:  # noqa: PLR2004
-            return self.format_template(
-                self.template.test_interpretations.p_value.very_significant,
-                clean_p_value=clean_p_value,
-            )
-        elif clean_p_value < alpha:
-            return self.format_template(
-                self.template.test_interpretations.p_value.significant,
-                clean_p_value=clean_p_value,
-            )
-        else:
-            return self.format_template(
-                self.template.test_interpretations.p_value.not_significant,
-                clean_p_value=clean_p_value,
-            )
-
-    def get_alpha(self, confidence_level: float | None = None) -> float:
-        """
-        Calculate alpha (significance threshold) from confidence level.
-
-        Args:
-            confidence_level: Optional confidence level (0-1). If None, uses default.
-
-        Returns:
-            Alpha value (1 - confidence_level)
-        """
-        return (
-            self.user_config.statistics.get_alpha()
-            if confidence_level is None
-            else 1.0 - confidence_level
-        )
-
-    # ========================================================================
-    # Effect Size Categorization
-    # ========================================================================
-    def interpret_cliffs_delta(self, delta: float | str | None) -> str:
-        """
-        Interpret Cliff's Delta effect size.
-
-        Args:
-            delta: Cliff's Delta value (-1 to +1)
-
-        Returns:
-            Interpretation label ('negligible', 'small', 'medium', 'large')
-        """
-        clean_delta: float = self._str_to_num(delta, float, 'interpret_cliffs_delta')
-        abs_delta: float = abs(clean_delta)
-        return get_cliffs_delta_magnitude(abs_delta, self.template)
-
-    # ========================================================================
-    # Report-Specific Formatting
-    # ========================================================================
-
-    def format_risk_level(self, risk_score: float) -> str:
-        """
-        Format a risk score into a categorical risk level.
-
-        Args:
-            risk_score: Numerical risk score (float 0-100)
-
-        Returns:
-            Risk level string: 'Critical', 'High', 'Medium', or 'Low'
-        """
-        return self.user_config.risk_thresholds.get_risk_category(risk_score)
-
     def format_count_with_label(self, count: int, singular: str, plural: str) -> str:
         """
-        Format a count with appropriate singular/plural label.
+        Format a count with grammatically correct singular/plural label.
 
         Args:
-            count: Number to format
-            singular: Singular form of the label
-            plural: Plural form of the label
+            count: Number to format.
+            singular: Singular form of the label.
+            plural: Plural form of the label.
 
         Returns:
-            Formatted string (e.g., "1 transaction", "5 transactions")
+            Formatted count with label (e.g., "1 transaction", "5 transactions").
 
         Examples:
             >>> formatter.format_count_with_label(1, "transaction", "transactions")
@@ -643,107 +358,434 @@ class ReportFormatter:
         label: str = singular if count == 1 else plural
         return f'{self.format_integer(count)} {label}'
 
-    # ========================================================================
-    # String Transformation Methods
-    # ========================================================================
+    # =========================================================================
+    # Date and Time Formatting
+    # =========================================================================
 
-    def format_temporal_metric_name(self, metric: str) -> str:
+    def format_date(self, value: datetime, format_string: str | None = None) -> str:
         """
-        Convert internal temporal metric name to user-friendly display name.
+        Format a date using locale-configured or custom format.
 
         Args:
-            metric: Internal metric name (e.g., 'avg_cost_per_transaction')
+            value: Datetime object to format.
+            format_string: Custom strftime format (uses locale default if None).
 
         Returns:
-            User-friendly display name (e.g., 'Average Cost Per Transaction')
+            Formatted date string.
 
         Examples:
-            >>> formatter.format_temporal_metric_name('avg_cost_per_transaction')
-            'Average Cost Per Transaction'
+            >>> formatter.format_date(datetime(2025, 3, 15))
+            '2025-03-15'
         """
-        get_metric_names: TemporalAnalysisMetricDisplayNames = (
-            self.template.temporal_analysis.metric_display_names
-        )
-        display_name: str = getattr(
-            get_metric_names, metric, metric.replace('_', ' ').title()
+        if pd.isna(value):
+            return self.missing_value
+
+        fmt: str = (
+            format_string
+            if format_string is not None
+            else self.context.locale.locale.date_format
         )
 
-        return display_name
+        return value.strftime(fmt)
 
-    def format_display_name(self, raw_name: str) -> str:
+    def format_datetime(self, value: datetime, format_string: str | None = None) -> str:
         """
-        Convert a dictionary key value into a string suitable for reporting.
+        Format a datetime using locale-configured or custom format.
 
         Args:
-            raw_name: Raw name with underscores (e.g., 'total_cost')
+            value: Datetime object to format.
+            format_string: Custom strftime format (uses locale default if None).
 
         Returns:
-            Formatted display name (e.g., 'Total Cost')
-
-        Examples:
-            >>> formatter.format_display_name('total_cost')
-            'Total Cost'
-            >>> formatter.format_display_name('avg_transactions_per_month')
-            'Avg Transactions Per Month'
+            Formatted datetime string.
         """
-        return raw_name.replace('_', ' ').title()
+        if pd.isna(value):
+            return self.missing_value
 
-    def calculate_analysis_period_label(
+        fmt: str = (
+            format_string
+            if format_string is not None
+            else self.context.locale.locale.datetime_format
+        )
+
+        return value.strftime(fmt)
+
+    def format_month(self, month_str: str) -> str:
+        """
+        Convert a YYYY-MM string to locale-configured month format.
+
+        Args:
+            month_str: Month in YYYY-MM format.
+
+        Returns:
+            Formatted month string (e.g., "2024-06" or locale equivalent).
+
+        Note:
+            Returns input unchanged on parse failure rather than missing_value,
+            since a malformed date string may still be human-readable.
+        """
+        try:
+            dt: datetime = datetime.strptime(month_str, '%Y-%m').replace(tzinfo=UTC)
+            return dt.strftime(self.context.locale.locale.month_format)
+        except (ValueError, AttributeError):
+            logger.debug('Failed to parse month string: %r', month_str)
+            return month_str
+
+    def format_analysis_period(
         self, date_min: pd.Timestamp, date_max: pd.Timestamp
     ) -> str:
         """
-        Calculate and format an analysis period label from date range.
+        Format a date range as a human-readable analysis period label.
 
-        This method intelligently formats date ranges:
-        - Same year: Shows "YYYY YTD (MMM-MMM)" format
-        - Different years: Shows "(MMM YYYY-MMM YYYY)" format
+        Formatting Rules:
+            - Same year: "YYYY YTD (MMM-MMM)" (e.g., "2025 YTD (Jan-Jun)")
+            - Different years: "(MMM YYYY-MMM YYYY)" (e.g., "(Nov 2024-Feb 2025)")
+            - Invalid dates: Returns locale missing value label
+
+        Note:
+            Month abbreviations use strftime %b, which depends on system locale
+            (e.g., "Jan" in en_US, "Ene" in es_ES). For consistent output,
+            ensure system locale is set or extend this method to use
+            locale-config driven month names.
 
         Args:
-            date_min: Start date of the analysis period
-            date_max: End date of the analysis period
+            date_min: Start date of the analysis period.
+            date_max: End date of the analysis period.
 
         Returns:
-            Formatted analysis period string
+            Formatted analysis period string.
 
         Examples:
-            >>> formatter.calculate_analysis_period_label(
+            >>> formatter.format_analysis_period(
             ...     pd.Timestamp('2025-01-01'),
             ...     pd.Timestamp('2025-06-30')
             ... )
             '2025 YTD (Jan-Jun)'
-
-            >>> formatter.calculate_analysis_period_label(
-            ...     pd.Timestamp('2024-11-01'),
-            ...     pd.Timestamp('2025-02-28')
-            ... )
-            '(Nov 2024-Feb 2025)'
         """
-        # Validate that both dates are valid
-        if pd.notna(date_min) and pd.notna(date_max):
-            # Check if dates are in the same year
-            if date_min.year == date_max.year:
-                # Format: "YYYY YTD (MMM-MMM)"
-                month_range: str = (
-                    f'({date_min.strftime("%b")}-{date_max.strftime("%b")})'
-                )
-                return f'{date_max.year} YTD {month_range}'
-            else:
-                # Format: "(MMM YYYY-MMM YYYY)"
-                month_range = (
-                    f'({date_min.strftime("%b %Y")}-{date_max.strftime("%b %Y")})'
-                )
-                return month_range
+        if pd.isna(date_min) or pd.isna(date_max):
+            logger.debug(
+                'Invalid date range for analysis period: min=%r, max=%r',
+                date_min,
+                date_max,
+            )
+            return self.missing_value
 
-    def is_missing_like(self, value: str | None) -> bool:
-        """Small helper to check strings for none like text"""
-        if value is None:
-            return True
-        return value.strip().lower() in {'none', 'na', 'n/a', 'null', 'nan', ''}
+        if date_min > date_max:
+            logger.warning(
+                'Invalid date range: min=%s > max=%s, swapping values.',
+                date_min,
+                date_max,
+            )
+            date_min, date_max = date_max, date_min
+
+        if date_min.year == date_max.year:
+            month_range: str = f'({date_min.strftime("%b")}-{date_max.strftime("%b")})'
+            return f'{date_max.year} YTD {month_range}'
+
+        month_range = f'({date_min.strftime("%b %Y")}-{date_max.strftime("%b %Y")})'
+        return month_range
+
+    # =========================================================================
+    # Statistical Value Formatting
+    # =========================================================================
+
+    def format_p_value(self, value: float | str | None) -> str:
+        """
+        Format a p-value to locale-configured decimal precision.
+
+        This method only formats the numeric value. For significance
+        interpretation with labels, use interpret_p_value().
+
+        Args:
+            value: P-value to format.
+
+        Returns:
+            Formatted p-value string (e.g., "0.023").
+
+        Examples:
+            >>> formatter.format_p_value(0.023456)
+            '0.023'
+        """
+        clean_value: float = self._str_to_num(value, float, 'format_p_value')
+
+        if math.isnan(clean_value):
+            return self.missing_value
+
+        decimals: int = self.context.locale.locale.p_value_decimals
+        return f'{clean_value:.{decimals}f}'
+
+    def format_confidence_interval(
+        self,
+        lower: float | str | None,
+        upper: float | str | None,
+        decimals: int | None = None,
+    ) -> str:
+        """
+        Format a confidence interval as "[lower, upper]".
+
+        Args:
+            lower: Lower bound of interval.
+            upper: Upper bound of interval.
+            decimals: Decimal places (uses locale default if None).
+
+        Returns:
+            Formatted confidence interval string (e.g., "[1.23, 4.56]").
+        """
+        clean_lower: float = self._str_to_num(
+            lower, float, 'format_confidence_interval'
+        )
+        clean_upper: float = self._str_to_num(
+            upper, float, 'format_confidence_interval'
+        )
+
+        if math.isnan(clean_lower) or math.isnan(clean_upper):
+            return self.missing_value
+
+        precision: int = (
+            decimals
+            if decimals is not None
+            else self.context.locale.locale.confidence_interval_decimals
+        )
+
+        return f'[{clean_lower:.{precision}f}, {clean_upper:.{precision}f}]'
+
+    # =========================================================================
+    # Statistical Interpretation
+    # =========================================================================
+
+    def interpret_p_value(self, value: float | str | None) -> str:
+        """
+        Interpret a p-value into a significance category with locale text.
+
+        Uses policy-defined thresholds to categorize significance and
+        locale-defined templates for user-facing output.
+
+        Significance Levels (per policy thresholds):
+            - p <= highly_significant: "highly significant (p < {threshold})"
+            - p <= very_significant: "very significant (p = {value})"
+            - p <= significant: "significant (p = {value})"
+            - p > significant: "not significant (p = {value})"
+
+        Args:
+            value: P-value from statistical test.
+
+        Returns:
+            Interpreted significance string from locale templates.
+
+        Examples:
+            >>> formatter.interpret_p_value(0.0001)
+            'highly significant (p < 0.001)'
+            >>> formatter.interpret_p_value(0.023)
+            'significant (p = 0.023)'
+        """
+        clean_value: float = self._str_to_num(value, float, 'interpret_p_value')
+
+        if math.isnan(clean_value):
+            return self.missing_value
+
+        thresholds: PValueThresholdsConfig = self.context.policy.statistics.p_value
+        templates: TestInterpretationsPValues = (
+            self.context.locale.test_interpretations.p_value
+        )
+
+        decimals: int = self.context.locale.locale.p_value_decimals
+        formatted_value: str = f'{clean_value:.{decimals}f}'
+
+        # templates* is type FormatStr, which is a validated template
+        # from locale config; extract as str for formatting.
+        if clean_value <= thresholds.highly_significant:
+            return self.format_template(
+                template=str(templates.highly_significant),
+                p_highly_significant=thresholds.highly_significant,
+            )
+
+        if clean_value <= thresholds.very_significant:
+            return self.format_template(
+                template=str(templates.very_significant),
+                clean_p_value=formatted_value,
+            )
+
+        if clean_value <= thresholds.significant:
+            return self.format_template(
+                template=str(templates.significant),
+                clean_p_value=formatted_value,
+            )
+
+        return self.format_template(
+            template=str(templates.not_significant),
+            clean_p_value=formatted_value,
+        )
+
+    def interpret_cliffs_delta(self, value: float | str | None) -> str:
+        """
+        Interpret Cliff's Delta effect size into a magnitude category.
+
+        Uses policy-defined thresholds and locale-defined labels.
+
+        Args:
+            value: Cliff's Delta value (-1 to +1).
+
+        Returns:
+            Magnitude label (e.g., "negligible", "small", "medium", "large") or
+            self.missing_value if input is invalid.
+        """
+        clean_value: float = self._str_to_num(value, float, 'interpret_cliffs_delta')
+
+        if math.isnan(clean_value):
+            return self.missing_value
+
+        return get_cliffs_delta_magnitude(clean_value, self.context)
+
+    def interpret_cohens_d(self, value: float | str | None) -> str:
+        """
+        Interpret Cohen's d effect size into a magnitude category.
+
+        Uses policy-defined thresholds and locale-defined labels.
+
+        Args:
+            value: Cohen's d value.
+
+        Returns:
+            Magnitude label (e.g., "negligible", "small", "medium", "large") or
+            self.missing_value if input is invalid.
+        """
+        clean_value: float = self._str_to_num(value, float, 'interpret_cohens_d')
+
+        if math.isnan(clean_value):
+            return self.missing_value
+
+        return get_cohens_d_magnitude(clean_value, self.context)
+
+    def interpret_risk_score(self, score: float | str | None) -> str:
+        """
+        Interpret a risk score into a categorical risk level label.
+
+        Uses policy-defined thresholds to categorize and locale-defined
+        labels for display.
+
+        Args:
+            score: Risk score (0-100).
+
+        Returns:
+            Risk level label (e.g., "Critical", "High", "Medium", "Low") or
+            self.missing_value if input is invalid.
+        """
+        clean_score: float = self._str_to_num(score, float, 'interpret_risk_score')
+
+        if math.isnan(clean_score):
+            return self.missing_value
+
+        category_label: str | None = categorize_risk_score(clean_score, self.context)
+
+        if category_label is None:
+            return self.missing_value
+
+        return category_label
+
+    # =========================================================================
+    # Display Name Formatting
+    # =========================================================================
+
+    def format_temporal_metric_name(self, metric_key: str) -> str:
+        """
+        Convert an internal temporal metric key to a user-friendly display name.
+
+        Looks up the metric in locale configuration. Falls back to
+        title-casing the key with underscores replaced by spaces.
+
+        Args:
+            metric_key: Internal metric name (e.g., "avg_cost_per_transaction").
+
+        Returns:
+            Display name (e.g., "Average Cost Per Transaction").
+
+        Examples:
+            >>> formatter.format_metric_display_name('avg_cost_per_transaction')
+            'Average Cost Per Transaction'
+        """
+        metric_names: TemporalAnalysisMetricDisplayNames = (
+            self.context.locale.temporal_analysis.metric_display_names
+        )
+        display_name: str | None = getattr(metric_names, metric_key, None)
+
+        if display_name is None:
+            logger.debug(
+                'No locale display name for metric %r; using fallback.', metric_key
+            )
+            return metric_key.replace('_', ' ').title()
+
+        return display_name
+
+    def format_snake_case_label(self, raw_name: str) -> str:
+        """
+        Convert a snake_case string to a Title Case display label.
+
+        This is a generic fallback for keys not in locale configuration.
+
+        Args:
+            raw_name: Snake_case string (e.g., "total_cost").
+
+        Returns:
+            Title case string (e.g., "Total Cost").
+
+        Examples:
+            >>> formatter.format_snake_case_label('total_cost')
+            'Total Cost'
+        """
+        return raw_name.replace('_', ' ').title()
+
+    # =========================================================================
+    # Text Layout
+    # =========================================================================
+
+    def separator(self, char: str = '=', width: int | None = None) -> str:
+        """
+        Create a horizontal separator line.
+
+        Args:
+            char: Character to repeat (default "=").
+            width: Line width (uses locale default if None).
+
+        Returns:
+            Separator string.
+
+        Examples:
+            >>> formatter.separator()
+            '========================================'
+            >>> formatter.separator('-', width=20)
+            '--------------------'
+        """
+        effective_width: int = width if width is not None else self.output_width
+        return char * effective_width
+
+    def center_text(self, text: str, width: int | None = None) -> str:
+        """
+        Center text within a specified width.
+
+        Args:
+            text: Text to center.
+            width: Total width (uses locale default if None).
+
+        Returns:
+            Centered text padded with spaces.
+
+        Examples:
+            >>> formatter.center_text("TITLE", width=20)
+            '       TITLE        '
+        """
+        effective_width: int = width if width is not None else self.output_width
+        return text.center(effective_width)
+
+    # =========================================================================
+    # Dunder Methods
+    # =========================================================================
 
     def __repr__(self) -> str:
-        """String representation of ReportFormatter."""
-        return 'ReportFormatter'
+        """Return a developer-friendly representation."""
+        return f'ReportFormatter(locale={self.context.locale.locale.language_code!r})'
 
     def __str__(self) -> str:
-        """Human-readable string representation."""
-        return 'ReportFormatter with settings'
+        """Return a human-readable description."""
+        return (
+            f'ReportFormatter using {self.context.locale.locale.language_code} locale'
+        )

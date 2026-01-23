@@ -41,14 +41,23 @@ import logging
 from enum import Enum
 from typing import Final, Self
 
-from argus.models import (
-    StatisticalMethodologyNonParametricItem,
+from argus.models.locale import (
+    StatisticalMethodologyNonParametricCliffsDelta,
+    StatisticalMethodologyNonParametricCohensD,
     StatisticalMethodologyNonParametricTests,
 )
 
 __all__: list[str] = [
-    'EffectSize', 'EffectSizeLabelRegistry',
+    'EffectSize',
+    'EffectSizeLabelRegistry',
 ]
+
+# Type alias for effect size metric configs that have a .label attribute.
+# Used for type narrowing when iterating over config attributes.
+EffectSizeMetricConfig = (
+    StatisticalMethodologyNonParametricCliffsDelta
+    | StatisticalMethodologyNonParametricCohensD
+)
 
 # =============================================================================
 # Module-Level Logger Configuration
@@ -92,11 +101,13 @@ class EffectSize(str, Enum):
         """
         return self.value
 
+
 # Canonical list of all valid internal keys.
 # Used for validation to ensure config provides labels for every key.
 _ALL_EFFECT_SIZE_KEYS: Final[tuple[str, ...]] = tuple(
     member.internal_key for member in EffectSize
 )
+
 
 # =============================================================================
 # Label Registry: Config-Driven Bidirectional Mapping
@@ -174,7 +185,7 @@ class EffectSizeLabelRegistry:
         all known effect size metrics and builds the bidirectional mappings.
 
         Args:
-            config_section: The parsed `EffectSizeConfigSection` from YAML.
+            config_section: The parsed `StatisticalMethodologyNonParametricTests` from YAML.
 
         Returns:
             A fully initialized `EffectSizeLabelRegistry`.
@@ -203,8 +214,8 @@ class EffectSizeLabelRegistry:
         effect_size_key: str
         for effect_size_key in _ALL_EFFECT_SIZE_KEYS:
             # Retrieve the metric config for this key.
-            metric_config: StatisticalMethodologyNonParametricItem = (
-                config_section.get_metric_config(effect_size_key)
+            metric_config: EffectSizeMetricConfig = getattr(
+                config_section, effect_size_key
             )
             localized_label: str = metric_config.label
 

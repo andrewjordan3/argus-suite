@@ -111,3 +111,8 @@ class LocaleSettings(FrozenModel):
     output_width: int = Field(
         ge=60, le=200, description='Character width for section divider lines'
     )
+
+    # Missing value representation
+    missing_value: str = Field(
+        min_length=1, description='Representation for missing values (e.g., "N/A")'
+    )

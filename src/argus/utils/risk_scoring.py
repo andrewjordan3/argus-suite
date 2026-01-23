@@ -6,7 +6,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from argus.config import AnomalyThresholds, RiskWeightsConfig
 from argus.models.context.context_model import AnalysisContext
 from argus.utils.stat_tools import wilson_ci
 from argus.utils.tail_test import decide_log1p

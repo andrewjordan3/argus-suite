@@ -7,7 +7,7 @@ from a specified file path or falling back to default bundled resources when app
 
 from pathlib import Path
 
-from argus.models.config import UserConfig
+from argus.models.user_config import UserConfig
 from argus.models.locale import LocaleConfig
 from argus.models.policy import PolicyConfig
 
@@ -18,7 +18,7 @@ __all__: list[str] = [
 ]
 
 
-def load_locale_yaml(file_path: Path | None = None) -> LocaleConfig:
+def load_locale_yaml(file_path: str | Path | None = None) -> LocaleConfig:
     """
     Load locale YAML text, falling back to the bundled default.
 
@@ -41,7 +41,7 @@ def load_locale_yaml(file_path: Path | None = None) -> LocaleConfig:
     return LocaleConfig.from_default()
 
 
-def load_policy_yaml(file_path: Path | None = None) -> PolicyConfig:
+def load_policy_yaml(file_path: str | Path | None = None) -> PolicyConfig:
     """
     Load policy YAML text, falling back to the bundled default.
 
@@ -64,7 +64,7 @@ def load_policy_yaml(file_path: Path | None = None) -> PolicyConfig:
     return PolicyConfig.from_default()
 
 
-def load_user_config(file_path: Path) -> UserConfig:
+def load_user_config(file_path: str | Path) -> UserConfig:
     """
     Load and validate user configuration from a YAML file. The user must
     provide the path to the configuration file. A default configuration is

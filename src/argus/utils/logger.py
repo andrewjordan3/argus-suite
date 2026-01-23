@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, TextIO, cast
 
-from argus.models.config.logging import LoggingConfig, LogLevel
+from argus.models.user_config.logging import LoggingConfig, LogLevel
 
 __all__: list[str] = ['setup_logger']
 

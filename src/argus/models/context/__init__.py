@@ -1,13 +1,17 @@
 # argus/models/context/__init__.py
+"""
+Pipeline context models for ARGUS.
 
-from argus.models.context.context_model import (
-    AnalysisContext,
-    EntityAnalysisContext,
-    EntityMetadata,
-)
+These models bundle configuration, data, and services for dependency
+injection throughout the analysis pipeline.
+"""
+
+from argus.models.context.argus_config import ArgusConfig
+from argus.models.context.argus_services import ArgusServices
+from argus.models.context.target_analysis_data import TargetAnalysisData
 
 __all__: list[str] = [
-    'AnalysisContext',
-    'EntityAnalysisContext',
-    'EntityMetadata',
+    'ArgusConfig',
+    'ArgusServices',
+    'TargetAnalysisData',
 ]

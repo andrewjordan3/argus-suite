@@ -6,7 +6,6 @@
 #
 # TEMPLATE VARIABLES:
 #   - Use {variable_name} syntax for dynamic values
-#   - Policy-derived values use {policy.*} convention (populated from policy.yaml)
 #   - Runtime values use descriptive names (populated from analysis results)
 #
 # =============================================================================
@@ -25,7 +24,7 @@ locale:
 
   # Currency formatting
   currency_symbol: "$"
-  currency_position: "before"  # "before" ($100) or "after" (100$)
+  currency_position: "before" # "before" ($100) or "after" (100$)
   currency_decimals: 2
 
   # Percentage formatting
@@ -45,6 +44,9 @@ locale:
   # Report layout
   output_width: 100
 
+  # Representation for missing values
+  missing_value: "N/A"
+
 # -----------------------------------------------------------------------------
 # SYSTEM METADATA - Branding and identification
 # -----------------------------------------------------------------------------
@@ -58,11 +60,11 @@ metadata:
 
 # -----------------------------------------------------------------------------
 # TEMPLATE VARIABLE REFERENCE - Developer documentation
-# Variables populated at runtime from policy.yaml, config.yaml, or analysis
+# Variables populated at runtime from yaml, config.yaml, or analysis
 # -----------------------------------------------------------------------------
 _variable_reference:
-  # --- Policy-derived variables (from policy.yaml) ---
-  # These use {policy.*} naming convention and are injected by the report generator
+  # --- Policy-derived variables (from yaml) ---
+  # These use {*} naming convention and are injected by the report generator
   policy:
     # Statistical thresholds
     confidence_level: "e.g., 0.95"
@@ -369,7 +371,7 @@ red_flags:
         full_name: "Rapid Succession"
         description: "Multiple fills within 1 hour (logistically suspicious)"
 
-  suspicion_score_formula: "Suspicion Score = (Passenger indicators × {policy.passenger_weight}) + (Card misuse indicators × {policy.misuse_weight})"
+  suspicion_score_formula: "Suspicion Score = (Passenger indicators × {passenger_weight}) + (Card misuse indicators × {misuse_weight})"
 
 # =============================================================================
 # REPORT SECTIONS
@@ -485,23 +487,23 @@ statistical_methodology:
       description: "How many times more likely the event is to happen in {target_location} vs other branches."
       interpretation:
         - "RR = 1.0: No difference"
-        - "RR > {policy.risk_ratio_substantial}: Substantial difference"
-        - "RR > {policy.risk_ratio_major}: Major concern"
+        - "RR > {risk_ratio_substantial}: Substantial difference"
+        - "RR > {risk_ratio_major}: Major concern"
 
     odds_ratio:
       label: "Odds Ratio (OR)"
       description: "Strength of the association between the location and the event."
       interpretation:
         - "OR = 1.0: No association"
-        - "OR > {policy.odds_ratio_strong}: Strong association"
-        - "OR > {policy.odds_ratio_very_strong}: Very strong"
+        - "OR > {odds_ratio_strong}: Strong association"
+        - "OR > {odds_ratio_very_strong}: Very strong"
 
     risk_difference:
       label: "Risk Difference (RD)"
       description: "The absolute difference in event rates (proportions) between groups, showing the size of the gap."
       interpretation:
-        - "RD > {policy.risk_diff_practical} ({policy.risk_diff_practical_pct}): Practically significant"
-        - "RD > {policy.risk_diff_major} ({policy.risk_diff_major_pct}): Major difference"
+        - "RD > {risk_diff_practical} ({risk_diff_practical_pct}): Practically significant"
+        - "RD > {risk_diff_major} ({risk_diff_major_pct}): Major difference"
 
   significance:
     section_header: "STATISTICAL SIGNIFICANCE"
@@ -510,9 +512,9 @@ statistical_methodology:
       label: "P-value"
       description: "Probability of observing data at least as extreme as the observed, assuming the null hypothesis is true."
       interpretation:
-        - "p < {policy.p_significant}: Statistically significant* ({policy.confidence_pct} confidence)"
-        - "p < {policy.p_very_significant}: Highly significant** ({policy.very_significant_confidence_pct} confidence)"
-        - "p < {policy.p_highly_significant}: Extremely significant*** ({policy.highly_significant_confidence_pct} confidence)"
+        - "p < {p_significant}: Statistically significant* ({confidence_pct} confidence)"
+        - "p < {p_very_significant}: Highly significant** ({very_significant_confidence_pct} confidence)"
+        - "p < {p_highly_significant}: Extremely significant*** ({highly_significant_confidence_pct} confidence)"
       note: "Significance threshold: α = {alpha:.2f} (confidence level = {confidence_level:.2f})."
 
     confidence_intervals:
@@ -531,19 +533,19 @@ statistical_methodology:
       label: "Cliff's Delta"
       description: "Effect size for ordinal data (-1 to +1). Larger |δ| indicates stronger stochastic dominance."
       interpretation:
-        - "|δ| < {policy.cliffs_delta_negligible}: Negligible"
-        - "{policy.cliffs_delta_negligible}-{policy.cliffs_delta_small}: Small"
-        - "{policy.cliffs_delta_small}-{policy.cliffs_delta_medium}: Medium"
-        - "> {policy.cliffs_delta_medium}: Large"
+        - "|δ| < {cliffs_delta_negligible}: Negligible"
+        - "{cliffs_delta_negligible}-{cliffs_delta_small}: Small"
+        - "{cliffs_delta_small}-{cliffs_delta_medium}: Medium"
+        - "> {cliffs_delta_medium}: Large"
 
     cohens_d:
       label: "Cohen's d"
       description: "Standardized mean difference between groups."
       interpretation:
-        - "|d| < {policy.cohens_d_negligible}: Negligible"
-        - "{policy.cohens_d_negligible}-{policy.cohens_d_small}: Small"
-        - "{policy.cohens_d_small}-{policy.cohens_d_medium}: Medium"
-        - "> {policy.cohens_d_medium}: Large"
+        - "|d| < {cohens_d_negligible}: Negligible"
+        - "{cohens_d_negligible}-{cohens_d_small}: Small"
+        - "{cohens_d_small}-{cohens_d_medium}: Medium"
+        - "> {cohens_d_medium}: Large"
 
   independence:
     section_header: "INDEPENDENCE TESTS"
@@ -627,7 +629,7 @@ test_interpretations:
     format: "({magnitude} effect, {target_location} costs are {direction})"
 
   p_value:
-    highly_significant: "highly significant (p < {policy.p_highly_significant})"
+    highly_significant: "highly significant (p < {p_highly_significant})"
     very_significant: "very significant (p = {clean_p_value:.3f})"
     significant: "significant (p = {clean_p_value:.3f})"
     not_significant: "not significant (p = {clean_p_value:.3f})"
@@ -654,7 +656,7 @@ financial_impact:
     - "• Excess unverified transactions: {excess_count}"
     - "• Average cost of unverified: {avg_cost}"
     - "• Estimated exposure: {total_exposure}"
-    - "• {policy.confidence_pct} Confidence Interval: [{ci_low}, {ci_high}]"
+    - "• {confidence_pct} Confidence Interval: [{ci_low}, {ci_high}]"
 
   exposure_note: "NOTE: This represents transactions that cannot be verified against vehicle records."
 
@@ -855,7 +857,7 @@ temporal_analysis:
       - "The temporal risk score (0-100) is calculated from EIGHT weighted components:"
       - "  • Concerning trends (20 pts) - Monotonic increases in suspicious metrics"
       - "  • Change points (25 pts) - Significant behavioral shifts"
-      - "  • Sudden spikes (25 pts) - Month-over-month jumps >{policy.spike_threshold_pct}%"
+      - "  • Sudden spikes (25 pts) - Month-over-month jumps >{spike_threshold_pct}%"
       - "  • Gradual escalation (15 pts) - Consecutive months of increases"
       - "  • Fraud patterns (30 pts) - Specific known fraud signatures [HIGHEST WEIGHT]"
       - "  • Autocorrelation (15 pts) - Persistent/systematic bad behavior"
@@ -891,7 +893,7 @@ temporal_analysis:
 
       after_hours_rate:
         label: "After Hours Rate"
-        definition: "Percentage of transactions OUTSIDE business hours ({policy.business_hours_range})"
+        definition: "Percentage of transactions OUTSIDE business hours ({business_hours_range})"
         risk: "Higher = worse (unusual timing for business operations)"
 
       avg_transaction_cost:
@@ -916,8 +918,8 @@ temporal_analysis:
         label: "Month-over-Month Analysis"
         description: "Compares consecutive months to detect sudden spikes and gradual escalation"
         thresholds:
-          - "Sudden Spike: >{policy.spike_threshold_pct}% increase from prior month or >{policy.spike_percentile}th percentile vs baseline"
-          - "Gradual Escalation: {policy.consecutive_months}+ consecutive months of increases"
+          - "Sudden Spike: >{spike_threshold_pct}% increase from prior month or >{spike_percentile}th percentile vs baseline"
+          - "Gradual Escalation: {consecutive_months}+ consecutive months of increases"
           - "Volatility Score: Standard deviation of monthly percent changes"
 
       rolling_windows:
@@ -928,28 +930,28 @@ temporal_analysis:
       autocorrelation:
         label: "Autocorrelation Analysis"
         description: "Detects if suspicious behavior is persistent vs. random"
-        interpretation: "High lag-1 correlation (>{policy.autocorrelation_threshold}) indicates systematic pattern"
+        interpretation: "High lag-1 correlation (>{autocorrelation_threshold}) indicates systematic pattern"
 
       fraud_patterns:
         label: "Fraud Pattern Recognition"
         description: "Matches against known fraud signatures"
         patterns:
-          off_hours_concentration: "Excessive non-business hour activity (>{policy.off_hours_threshold_pct}% of transactions)"
-          spike_retreat: "Rapid escalation followed by sudden cessation (>{policy.spike_threshold_pct}% spike, then >{policy.retreat_drop_pct}% drop)"
-          gradual_escalation: "Sustained increase over extended period (second half >{policy.period_change_pct}% higher than first)"
+          off_hours_concentration: "Excessive non-business hour activity (>{off_hours_threshold_pct}% of transactions)"
+          spike_retreat: "Rapid escalation followed by sudden cessation (>{spike_threshold_pct}% spike, then >{retreat_drop_pct}% drop)"
+          gradual_escalation: "Sustained increase over extended period (second half >{period_change_pct}% higher than first)"
           operational_anomaly: "Behavior inconsistent with expected business patterns"
 
     period_comparison:
       title: "Period Comparison (First Half vs Second Half):"
       items:
-        - "• INCREASED: Statistically significant rise (p < {policy.p_significant})"
-        - "• DECREASED: Statistically significant decline (p < {policy.p_significant})"
+        - "• INCREASED: Statistically significant rise (p < {p_significant})"
+        - "• DECREASED: Statistically significant decline (p < {p_significant})"
         - "• NO CHANGE: No significant difference detected"
         - "• Effect size (r): -1 to +1, larger absolute value = stronger change"
 
   insufficient_data:
     warning: "⚠ WARNING: Insufficient data for entity-level temporal analysis."
-    details: "Entities need at least {policy.min_transactions_temporal} transactions across {policy.min_months_temporal}+ months."
+    details: "Entities need at least {min_transactions_temporal} transactions across {min_months_temporal}+ months."
     recommendation: "Consider lowering thresholds or extending analysis period for more coverage."
 
   summary_statistics:
@@ -957,8 +959,8 @@ temporal_analysis:
     items:
       - "• Analysis Period: {date_min} to {date_max}"
       - "• Entities analyzed (drivers + vehicles): {total_entities}"
-      - "• Critical Risk (score ≥ {policy.risk_critical}): {critical_count} ({critical_pct})"
-      - "• High Risk (score {policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct})"
+      - "• Critical Risk (score ≥ {risk_critical}): {critical_count} ({critical_pct})"
+      - "• High Risk (score {risk_high}-{risk_critical_minus_one}): {high_risk_count} ({high_risk_pct})"
       - "• Entities with change points: {with_change_points} ({with_change_points_pct})"
       - "• Entities with concerning trends: {with_trends} ({with_trends_pct})"
       - "• Entities with fraud patterns: {with_fraud_patterns} ({with_fraud_patterns_pct})"
@@ -1053,18 +1055,18 @@ temporal_analysis:
 
     overall:
       title: "Overall Distribution:"
-      critical: "  Critical ({policy.risk_critical}-100): {critical_count} entities"
-      high: "  High ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_count} entities"
-      medium: "  Medium ({policy.risk_medium}-{policy.risk_high_minus_one}): {medium_count} entities"
-      low: "  Low (0-{policy.risk_medium_minus_one}): {low_count} entities"
+      critical: "  Critical ({risk_critical}-100): {critical_count} entities"
+      high: "  High ({risk_high}-{risk_critical_minus_one}): {high_count} entities"
+      medium: "  Medium ({risk_medium}-{risk_high_minus_one}): {medium_count} entities"
+      low: "  Low (0-{risk_medium_minus_one}): {low_count} entities"
 
     drivers:
       title: "Drivers (n={count}):"
       items:
         - "  Mean Risk Score: {mean_risk:.1f}"
         - "  Median Risk Score: {median_risk:.1f}"
-        - "  Critical Risk (≥{policy.risk_critical}): {critical_count} ({critical_pct:.1f}%)"
-        - "  High Risk ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
+        - "  Critical Risk (≥{risk_critical}): {critical_count} ({critical_pct:.1f}%)"
+        - "  High Risk ({risk_high}-{risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
       none: "  No driver entities met minimum threshold for analysis"
 
     vehicles:
@@ -1072,8 +1074,8 @@ temporal_analysis:
       items:
         - "  Mean Risk Score: {mean_risk:.1f}"
         - "  Median Risk Score: {median_risk:.1f}"
-        - "  Critical Risk (≥{policy.risk_critical}): {critical_count} ({critical_pct:.1f}%)"
-        - "  High Risk ({policy.risk_high}-{policy.risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
+        - "  Critical Risk (≥{risk_critical}): {critical_count} ({critical_pct:.1f}%)"
+        - "  High Risk ({risk_high}-{risk_critical_minus_one}): {high_risk_count} ({high_risk_pct:.1f}%)"
       none: "  No vehicle entities met minimum threshold for analysis"
 
   fraud_timeline:
@@ -1125,19 +1127,19 @@ temporal_analysis:
 
     off_hours_concentration:
       title: "  Off-Hours Concentration Pattern:"
-      description: "    Excessive non-business hour activity (>{policy.off_hours_threshold_pct}% of transactions)"
+      description: "    Excessive non-business hour activity (>{off_hours_threshold_pct}% of transactions)"
       count: "    Detected in: {count} entities"
       concern: "    Concern: Personal use or unauthorized activity during weekends/evenings"
 
     spike_retreat:
       title: "  Spike-and-Retreat Pattern:"
-      description: "    Rapid escalation followed by sudden cessation (>{policy.spike_threshold_pct}% spike, then >{policy.retreat_drop_pct}% drop)"
+      description: "    Rapid escalation followed by sudden cessation (>{spike_threshold_pct}% spike, then >{retreat_drop_pct}% drop)"
       count: "    Detected in: {count} entities"
       concern: "    Concern: Testing detection thresholds, then backing off to avoid scrutiny"
 
     gradual_escalation:
       title: "  Gradual Escalation Pattern:"
-      description: "    Sustained increase over extended period (second half >{policy.period_change_pct}% higher than first)"
+      description: "    Sustained increase over extended period (second half >{period_change_pct}% higher than first)"
       count: "    Detected in: {count} entities"
       concern: "    Concern: Incremental misuse increase to avoid triggering sudden anomaly alerts"
 
@@ -1169,7 +1171,7 @@ temporal_analysis:
       significant_higher:
         paragraphs:
           - ""
-          - "  ⚠ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {policy.p_significant})"
+          - "  ⚠ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {p_significant})"
           - "  {target_location} demonstrates higher temporal risk scores than other branches."
           - "  This pattern indicates more frequent or severe behavior changes at this location."
           - ""
@@ -1182,7 +1184,7 @@ temporal_analysis:
       significant_lower:
         paragraphs:
           - ""
-          - "  ✓ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {policy.p_significant})"
+          - "  ✓ STATISTICALLY SIGNIFICANT DIFFERENCE (p < {p_significant})"
           - "  {target_location} demonstrates lower temporal risk scores than other branches."
           - "  This suggests more stable behavioral patterns at this location."
           - "  While overall risk is lower, individual high-risk entities still warrant attention."
@@ -1190,17 +1192,17 @@ temporal_analysis:
       not_significant:
         paragraphs:
           - ""
-          - "  NO STATISTICALLY SIGNIFICANT DIFFERENCE (p ≥ {policy.p_significant})"
+          - "  NO STATISTICALLY SIGNIFICANT DIFFERENCE (p ≥ {p_significant})"
           - "  {target_location} temporal risk is statistically comparable to other branches."
           - "  Investigation focus should be directed toward individual high-risk entities"
           - "  rather than branch-wide systemic issues."
 
     effect_size_guide:
       title: "  Effect Size Analysis (Cliff's Delta):"
-      negligible: "Negligible (|δ| < {policy.cliffs_delta_negligible}) - Minimal practical difference between locations"
-      small: "Small (|δ| < {policy.cliffs_delta_small}) - Detectable but modest difference"
-      medium: "Medium (|δ| < {policy.cliffs_delta_medium}) - Moderate practical difference"
-      large: "Large (|δ| ≥ {policy.cliffs_delta_medium}) - Substantial practical difference"
+      negligible: "Negligible (|δ| < {cliffs_delta_negligible}) - Minimal practical difference between locations"
+      small: "Small (|δ| < {cliffs_delta_small}) - Detectable but modest difference"
+      medium: "Medium (|δ| < {cliffs_delta_medium}) - Moderate practical difference"
+      large: "Large (|δ| ≥ {cliffs_delta_medium}) - Substantial practical difference"
       probability_explanation:
         - "    Interpretation: If you randomly select one entity from {target_location}"
         - "    and one from other branches, there's a {probability} chance the"
@@ -1223,7 +1225,7 @@ temporal_analysis:
         - "  ✓ Multiple fraud patterns detected (2+ signatures)"
         - "  ✓ Both trends AND change points detected (converging evidence)"
         - "  ✓ High autocorrelation (persistent/systematic behavior)"
-        - "  ✓ Risk score ≥{policy.risk_critical} (Critical category)"
+        - "  ✓ Risk score ≥{risk_critical} (Critical category)"
 
     medium_confidence:
       title: "Medium Confidence (Requires Additional Context):"
@@ -1231,16 +1233,16 @@ temporal_analysis:
         - "  • Single fraud pattern detected"
         - "  • Change points without trends (could be legitimate business change)"
         - "  • Trends without change points (gradual evolution)"
-        - "  • Risk score {policy.risk_high}-{policy.risk_critical_minus_one} (High category)"
+        - "  • Risk score {risk_high}-{risk_critical_minus_one} (High category)"
         - "  • Historical issues without current risks (may be resolved)"
 
     lower_priority:
       title: "Lower Priority (Monitor but Don't Rush):"
       items:
-        - "  • Risk score {policy.risk_medium}-{policy.risk_high_minus_one} (Medium category)"
+        - "  • Risk score {risk_medium}-{risk_high_minus_one} (Medium category)"
         - "  • No fraud patterns, only statistical anomalies"
-        - "  • Short analysis period (<{policy.min_months_temporal} months)"
-        - "  • Very few transactions (<{policy.min_transactions_risk} total)"
+        - "  • Short analysis period (<{min_months_temporal} months)"
+        - "  • Very few transactions (<{min_transactions_risk} total)"
 
   caveats:
     title: "ANALYSIS CAVEATS & LIMITATIONS"
@@ -1307,7 +1309,6 @@ report_footer:
   closing:
     main: "END OF FORENSIC ANALYSIS REPORT"
     subtitle: "Generated by {system_name}: {system_full_name}"
-
 # =============================================================================
 # END OF LOCALIZATION FILE
 # =============================================================================

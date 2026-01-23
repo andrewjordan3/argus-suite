@@ -8,9 +8,11 @@ from typing import Any
 import pandas as pd
 
 from argus.categoricals import run_key_metric_analysis
-from argus.config import FuelCardForensicsConfig, load_config
 from argus.generate_visualizations import generate_executive_visualizations
-from argus.models import DriverRiskProfile, StatisticalTest
+from argus.models.analysis import DriverRiskProfile, StatisticalTest
+from argus.models.user_config import UserConfig
+from argus.models.locale.root_config import LocaleConfig
+from argus.models.policy.root import PolicyConfig
 from argus.output_formatter import ForensicReportWriter
 from argus.preprocessing import run_data_preparation
 from argus.report_summary import generate_report_summary
@@ -22,7 +24,10 @@ from argus.utils import (
     ReportFormatter,
     TemplateLoader,
     format_duration_between_times,
+    load_locale_yaml,
+    load_policy_yaml,
     load_template,
+    load_user_config,
     setup_logger,
     slugify,
 )
@@ -40,13 +45,20 @@ class ForensicAnalysisPipeline:
     and temporal analysis.
     """
 
-    def __init__(self, config_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        user_config_path: str | Path,
+        policy_path: str | Path | None,
+        locale_path: str | Path | None,
+    ) -> None:
         """
         Initialize the forensic analysis pipeline.
 
         """
-        self.config: FuelCardForensicsConfig = load_config(config_path)
-        setup_logger(config=self.config.logging)
+        self.user_config: UserConfig = load_user_config(user_config_path)
+        self.policy_config: PolicyConfig = load_policy_yaml(policy_path)
+        self.locale_config: LocaleConfig = load_locale_yaml(locale_path)
+        setup_logger(config=self.user_config.logging)
         self._initialize_components()
 
         # Storage for analysis results
@@ -56,12 +68,11 @@ class ForensicAnalysisPipeline:
 
     def _initialize_components(self) -> None:
         """Initialize analysis components."""
-        self.target_location: str = self.config.analysis.target_location_name
-        self.target_number: int = self.config.analysis.target_location_number
-        self.alpha: float = 1 - self.config.analysis.confidence_level
+        self.target_location: str = self.user_config.analysis.target_location_name
+        self.target_number: int = self.user_config.analysis.target_location_number
 
         # Create output directory
-        self.output_dir = Path(self.config.output.output_directory)
+        self.output_dir = Path(self.user_config.output.output_directory)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize the output config and report formatter
@@ -239,9 +250,7 @@ class ForensicAnalysisPipeline:
         """Stage 5: Advanced temporal analysis."""
         logger.debug('STAGE 5: ADVANCED TEMPORAL ANALYSIS')
 
-        temporal_results: dict[str, Any] = run_advanced_temporal_analysis(
-            self.context
-        )
+        temporal_results: dict[str, Any] = run_advanced_temporal_analysis(self.context)
 
         self.results['temporal_analysis'] = temporal_results
 

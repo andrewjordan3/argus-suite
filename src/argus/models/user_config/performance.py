@@ -1,4 +1,4 @@
-# argus/models/config/performance.py
+# argus/models/user_config/performance.py
 
 from pydantic import Field
 

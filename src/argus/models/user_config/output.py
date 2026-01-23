@@ -1,4 +1,4 @@
-# argus/models/config/output.py
+# argus/models/user_config/output.py
 """
 This module defines the OutputConfig model for configuring output
 generation and formatting in the ARGUS system.

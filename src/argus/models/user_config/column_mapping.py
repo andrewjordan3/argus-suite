@@ -1,4 +1,4 @@
-# argus/models/config/column_mapping.py
+# argus/models/user_config/column_mapping.py
 """
 =============================================================================
 COLUMN MAPPING CONFIGURATION

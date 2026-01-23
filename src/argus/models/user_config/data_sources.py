@@ -1,4 +1,4 @@
-# argus/models/config/data_sources.py
+# argus/models/user_config/data_sources.py
 """
 =============================================================================
 ARGUS FUEL CARD FORENSICS - DATA SOURCE CONFIGURATION MODEL

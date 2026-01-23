@@ -1,4 +1,4 @@
-# argus/models/config/analysis_target.py
+# argus/models/user_config/analysis_target.py
 """
 Configuration module for specifying analysis targets in the ARGUS system.
 """

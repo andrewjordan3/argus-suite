@@ -1,4 +1,4 @@
-# argus/models/config/logging.py
+# argus/models/user_config/logging.py
 """
 Logging configuration module for the ARGUS system.
 """

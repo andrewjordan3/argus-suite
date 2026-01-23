@@ -1,4 +1,4 @@
-# argus/models/config/root.py
+# argus/models/user_config/root.py
 """Root configuration model for ARGUS."""
 
 from pathlib import Path
@@ -6,12 +6,12 @@ from pathlib import Path
 from pydantic import Field
 
 from argus.models.common import RootConfigModel
-from argus.models.config.analysis_target import AnalysisConfig
-from argus.models.config.column_mapping import ColumnMappingConfig
-from argus.models.config.data_sources import DataSourcesConfig
-from argus.models.config.logging import LoggingConfig
-from argus.models.config.output import OutputConfig
-from argus.models.config.performance import PerformanceConfig
+from argus.models.user_config.analysis_target import AnalysisConfig
+from argus.models.user_config.column_mapping import ColumnMappingConfig
+from argus.models.user_config.data_sources import DataSourcesConfig
+from argus.models.user_config.logging import LoggingConfig
+from argus.models.user_config.output import OutputConfig
+from argus.models.user_config.performance import PerformanceConfig
 
 __all__: list[str] = ['UserConfig']
 
