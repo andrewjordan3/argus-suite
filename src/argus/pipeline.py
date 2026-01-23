@@ -3,90 +3,97 @@
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import pandas as pd
 
 from argus.categoricals import run_key_metric_analysis
+from argus.formatting import format_duration_between_times, slugify
 from argus.generate_visualizations import generate_executive_visualizations
-from argus.models.analysis import DriverRiskProfile, StatisticalTest
-from argus.models.user_config import UserConfig
-from argus.models.locale.root_config import LocaleConfig
-from argus.models.policy.root import PolicyConfig
-from argus.output_formatter import ForensicReportWriter
+from argus.models.analysis import DriverRiskProfile
+from argus.models.context import ArgusConfig, ArgusServices
 from argus.preprocessing import run_data_preparation
 from argus.report_summary import generate_report_summary
 from argus.risk_analysis import run_risk_identification_analysis
 from argus.suspicious_patterns import run_suspicious_pattern_analysis
 from argus.temporal import run_advanced_temporal_analysis
-from argus.utils import (
-    AnalysisContext,
-    ReportFormatter,
-    TemplateLoader,
-    format_duration_between_times,
-    load_locale_yaml,
-    load_policy_yaml,
-    load_template,
-    load_user_config,
-    setup_logger,
-    slugify,
-)
+from argus.utils.builders import build_dependencies_from_paths
 
 # Set up a logger for this module
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class ForensicAnalysisPipeline:
+class ArgusPipeline:
     """
-    Orchestrates the complete fuel card forensic analysis pipeline.
+    Orchestrate a complete ARGUS forensic analysis run.
 
-    This class coordinates all analysis modules and produces a comprehensive
-    forensic report with statistical tests, risk profiles, pattern detection,
-    and temporal analysis.
+    The pipeline coordinates the full analysis workflow for one or more targets
+    (typically locations) and produces one or more forensic reports containing
+    statistical tests, risk profiles, pattern detection, and temporal analysis.
+
+    Design:
+        - Configuration (ArgusConfig) is pure, validated data loaded from YAML.
+        - Services (ArgusServices) are side-effectful dependencies (writer, formatter, clock).
+        - This class focuses on orchestration, not dependency construction.
+
+    Typical usage:
+        >>> pipeline = ArgusPipeline.from_paths('user.yaml', 'policy.yaml', 'en_US.yaml')
+        >>> pipeline.run()
+
+    Testing usage:
+        >>> pipeline = ArgusPipeline(config=config, services=fake_services)
+        >>> pipeline.run()
     """
 
     def __init__(
         self,
-        user_config_path: str | Path,
-        policy_path: str | Path | None,
-        locale_path: str | Path | None,
+        *,
+        config: ArgusConfig,
+        services: ArgusServices,
     ) -> None:
         """
         Initialize the forensic analysis pipeline.
 
         """
-        self.user_config: UserConfig = load_user_config(user_config_path)
-        self.policy_config: PolicyConfig = load_policy_yaml(policy_path)
-        self.locale_config: LocaleConfig = load_locale_yaml(locale_path)
-        setup_logger(config=self.user_config.logging)
-        self._initialize_components()
+        self._config: ArgusConfig = config
+        self._services: ArgusServices = services
 
-        # Storage for analysis results
-        self.results: dict[str, Any] = {}
-        self.all_tests: dict[str, StatisticalTest] = {}
-        self.driver_profiles: list[DriverRiskProfile] = []
-
-    def _initialize_components(self) -> None:
-        """Initialize analysis components."""
-        self.target_location: str = self.user_config.analysis.target_location_name
-        self.target_number: int = self.user_config.analysis.target_location_number
-
-        # Create output directory
-        self.output_dir = Path(self.user_config.output.output_directory)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Initialize the output config and report formatter
-        self.output_template: TemplateLoader = load_template()
-        self.report_formatter: ReportFormatter = ReportFormatter(self.output_template)
-
-        # Initialize report writer
-        # Create the report writer with placeholder analysis_period
-        self.report_writer: ForensicReportWriter = ForensicReportWriter(
-            self.config,
-            analysis_period='Placeholder',  # Will be updated
-            output_template=self.output_template,
-            formatter=self.report_formatter,
+    @classmethod
+    def from_paths(
+        cls,
+        user_config_path: str | Path,
+        policy_path: str | Path | None = None,
+        locale_path: str | Path | None = None,
+    ) -> Self:
+        """Factory that loads configs and performs setup side effects."""
+        config: ArgusConfig
+        services: ArgusServices
+        config, services = build_dependencies_from_paths(
+            user_config_path=user_config_path,
+            policy_path=policy_path,
+            locale_path=locale_path,
         )
+        return cls(config=config, services=services)
+
+    @property
+    def config(self) -> ArgusConfig:
+        return self._config
+
+    @property
+    def services(self) -> ArgusServices:
+        return self._services
+
+    @property
+    def target_location(self) -> str:
+        return self.config.user.analysis.target_location_name
+
+    @property
+    def target_number(self) -> int:
+        return self.config.user.analysis.target_location_number
+
+    @property
+    def output_directory(self) -> Path:
+        return self.config.user.output.output_directory
 
     def run(
         self, df: pd.DataFrame, highlight_drivers: list[str] | None = None
@@ -109,7 +116,7 @@ class ForensicAnalysisPipeline:
         is_valid: bool
         missing_columns: list[str]
         is_valid, missing_columns = (
-            self.config.column_mapping.validate_dataframe_columns(df.columns)
+            self.config.user.column_mapping.validate_dataframe_columns(df.columns)
         )
         if not is_valid:
             raise ValueError(
@@ -118,7 +125,7 @@ class ForensicAnalysisPipeline:
 
         # Standardize the column names using the user provided mapping
         renamed_df: pd.DataFrame = df.rename(
-            columns=self.config.column_mapping.get_rename_mapping()
+            columns=self.config.user.column_mapping.get_rename_mapping()
         )
 
         try:
@@ -143,7 +150,7 @@ class ForensicAnalysisPipeline:
             self._stage_report_summary()
 
             # Stage 7: Generate Visualizations
-            if self.config.output.generate_visualizations:
+            if self.config.user.output.generate_visualizations:
                 self._stage_visualizations(high_volume_drivers)
 
             # Stage 8: Output Report

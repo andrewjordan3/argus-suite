@@ -2,31 +2,18 @@
 
 import logging
 import math
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import pandas as pd
 
-from argus.models.user_config.root import UserConfig
-from argus.models.locale import LocaleConfig
-from argus.models.policy.root import PolicyConfig
-from argus.utils import (
-    ReportFormatter,
-)
+from argus.formatting import ReportFormatter, ReportSection
+from argus.models.context.argus_config import ArgusConfig
+from argus.utils.clock import Clock
 
 # Set up a logger for this module
 logger: logging.Logger = logging.getLogger(__name__)
-
-CRITICAL_RISK_SCORE: int = 75
-MEDIUM_RISK_SCORE: int = 50
-LOW_RISK_SCORE: int = 25
-MINIMUM_MONTHS: int = 3
-MIN_MONTHS_PCT_THRESHOLD: int = 30
-EFFECT_MAGNITUDE_THRESHOLD_NEGLIGIBLE: float = 0.147
-EFFECT_MAGNITUDE_THRESHOLD_SMALL: float = 0.33
-EFFECT_MAGNITUDE_THRESHOLD_MEDIUM: float = 0.474
-ODDS_RISK_RATIO_DIFFERENCE_THRESHOLD: float = 0.5
 
 
 class ForensicReportWriter:
@@ -45,43 +32,30 @@ class ForensicReportWriter:
 
     def __init__(
         self,
-        user_config: UserConfig,
-        policy_config: PolicyConfig,
-        locale_config: LocaleConfig,
-        formatter: ReportFormatter | None = None,
+        config: ArgusConfig,
+        formatter: ReportFormatter,
+        clock: Clock
     ) -> None:
         """
         Initialize the report writer.
 
         Args:
-            target_location: Name of the target branch
-            target_location_number: ID of the target branch
-            analysis_period: Period being analyzed (e.g., "2025 YTD")
-            confidence_level: Statistical confidence level (default 0.95)
-            output_width: Width for separator lines (default from config)
-            use_logging: If True, use logging instead of print (default False)
-            config: Optional pre-loaded ConfigLoader instance
-            formatter: Optional pre-loaded ReportFormatter instance
+            config: Pre-loaded instances of UserConfig, PolicyConfig, LocaleConfig
+            formatter: Pre-loaded ReportFormatter instance
+            clock: Clock
         """
-        self.target_location: str = config.analysis.target_location_name
-        self.target_location_number: int = config.analysis.target_location_number
-        self.analysis_period: str = analysis_period
-        self.confidence_level: float = config.analysis.confidence_level
-        self.report_date: str = datetime.now(tz=UTC).strftime('%Y-%m-%d')
-
-        # Load configuration
-        self.template: TemplateLoader = (
-            output_template if output_template is not None else load_template()
-        )
-        self.new_config: ReportConfig = self.template.pydantic_config
+        self.target_location: str = config.user.analysis.target_location_name
+        self.target_location_number: int = config.user.analysis.target_location_number
+        # We cannot compute until we preprocess the data
+        #self.analysis_period: str = analysis_period
+        self.confidence_level: float = config.policy.statistics.confidence_level
+        self.report_date: date = clock.today_utc()
 
         # Create or use provided formatter
-        self.formatter: ReportFormatter = (
-            formatter if formatter is not None else ReportFormatter(self.template)
-        )
+        self.formatter: ReportFormatter = formatter
 
         # Set output width from config or parameter
-        self.output_width: int = config.output.output_width
+        self.output_width: int = config.user.output.output_width
 
         # Storage for report sections
         self.sections: dict[ReportSection, list[str]] = {

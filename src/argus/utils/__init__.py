@@ -16,7 +16,7 @@ from argus.utils.logger import setup_logger
 from argus.utils.resources import (
     load_locale_yaml,
     load_policy_yaml,
-    load_user_config,
+    load_user_config_yaml,
 )
 from argus.utils.risk_scoring import RiskProfileCalculator
 from argus.utils.stat_tools import (
@@ -54,7 +54,7 @@ __all__: list[str] = [
     'is_missing_like',
     'load_locale_yaml',
     'load_policy_yaml',
-    'load_user_config',
+    'load_user_config_yaml',
     'newcombe_diff_ci',
     'odds_ratio_ci',
     'risk_ratio_ci',

@@ -10,12 +10,14 @@ from argus.formatting.format_tools import (
     slugify,
 )
 from argus.formatting.report_formatter import ReportFormatter
+from argus.formatting.report_sections import ReportSection
 from argus.formatting.safe_template import safe_format_template
 
 __all__: list[str] = [
     'EffectSize',
     'EffectSizeLabelRegistry',
     'ReportFormatter',
+    'ReportSection',
     'format_duration_between_times',
     'format_entities_by_metric_for_month',
     'safe_format_template',
